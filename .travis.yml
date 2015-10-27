@@ -10,7 +10,7 @@ addons:
     - liblapack-dev
     - gfortran
 install:
-  - travis_wait travis_retry pip install -r requirements.txt
+  - pip install -r requirements.txt
 script: PYTHONPATH=$PWD/src py.test tests
 cache:
   - apt

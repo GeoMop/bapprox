@@ -1,8 +1,19 @@
 language: python
+sudo: false
 python:
   - "2.7"
   - "3.4"
+addons:
+  apt:
+    packages:
+    - libblas-dev
+    - liblapack-dev
+    - gfortran
 install:
-  pip install -r requirements.txt
-script:
-  PYTHONPATH=$PWD/src py.test tests
+  - travis_wait travis_retry pip install -r requirements.txt
+script: PYTHONPATH=$PWD/src py.test tests
+cache:
+  - apt
+  - directories:
+    - $HOME/.cache/pip
+    - $HOME/.theano

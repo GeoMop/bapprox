@@ -10,10 +10,10 @@ addons:
     - python-scipy
     - python-matplotlib
     - python-yaml
-    - python3-numpy
-    - python3-scipy
-    - python3-matplotlib
-    - python3-yaml
+    # - python3-numpy
+    # - python3-scipy
+    # - python3-matplotlib
+    # - python3-yaml
     # - libblas-dev
     # - liblapack-dev
     # - gfortran

@@ -6,11 +6,19 @@ python:
 addons:
   apt:
     packages:
-    - libblas-dev
-    - liblapack-dev
-    - gfortran
-install:
-  - pip install -r requirements.txt
+    - python-numpy
+    - python-scipy
+    - python-matplotlib
+    - python-yaml
+    - python3-numpy
+    - python3-scipy
+    - python3-matplotlib
+    - python3-yaml
+    # - libblas-dev
+    # - liblapack-dev
+    # - gfortran
+#install:
+#  - pip install -r requirements.txt
 script: PYTHONPATH=$PWD/src py.test tests
 cache:
   - apt

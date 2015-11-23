@@ -10,6 +10,7 @@ addons:
     - python-scipy
     - python-matplotlib
     - python-yaml
+    - python-tk
     # - python3-numpy
     # - python3-scipy
     # - python3-matplotlib

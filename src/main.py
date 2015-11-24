@@ -1,5 +1,10 @@
-import argparse
+#!/usr/bin/env python
 
+"""
+This application can be used for approximation of surface using bspline surfaces.
+"""
+
+import argparse
 import terrain_data
 
 def main(yaml_conf_filename):
@@ -16,13 +21,19 @@ def main(yaml_conf_filename):
     terrain.aproximate_terrain()
     terrain.aproximate_2d_borders()
     terrain.aproximate_2d_rivers()
-    
+
     terrain.display_terrain()
+
+def parse_arguments():
+    """
+    Parse command line arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--filename", type=str,
+                        help="Yaml conf file", default=None)
+    args = parser.parse_args()
+    main(args.filename)
 
 if __name__ == '__main__':
     # Parse argument
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--filename", type=str,
-        help="Yaml conf file", default=None)
-    args = parser.parse_args()
-    main(args.filename)
+    parse_arguments()

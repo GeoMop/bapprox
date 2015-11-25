@@ -15,12 +15,12 @@ before_script:
 #     - python-matplotlib
 #     - python-yaml
 #     - python-tk
-install:
-  - pip install coveralls
+#install:
+#  - pip install coveralls
 virtualenv:
   system_site_packages: true
 script: PYTHONPATH=$PWD/src py.test tests -v --cov=src --cov-report term-missing
-after_success:
-  - coveralls
+#after_success:
+#  - coveralls
 # cache:
 #   - apt

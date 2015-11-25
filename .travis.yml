@@ -1,17 +1,26 @@
 language: python
-sudo: false
+sudo: true
 python:
   - "2.7"
-addons:
-  apt:
-    packages:
-    - python-numpy
-    - python-scipy
-    - python-matplotlib
-    - python-yaml
-    - python-tk
+before_script:
+  - sudo add-apt-repository ppa:freecad-maintainers/oce-release -y
+  - sudo add-apt-repository ppa:tpaviot/pythonocc -y
+  - sudo apt-get update -qq
+  - sudo apt-get install pythonocc-core python-numpy python-scipy python-matplotlib python-tk
+# addons:
+#   apt:
+#     packages:
+#     - python-numpy
+#     - python-scipy
+#     - python-matplotlib
+#     - python-yaml
+#     - python-tk
+install:
+  - pip install coveralls
 virtualenv:
   system_site_packages: true
-script: PYTHONPATH=$PWD/src py.test tests
-cache:
-  - apt
+script: PYTHONPATH=$PWD/src py.test tests -v --cov=src --cov-report term-missing
+after_success:
+  - coveralls
+# cache:
+#   - apt

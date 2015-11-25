@@ -15,6 +15,7 @@ Requirements
 * Numpy
 * SciPy
 * GnuPlot
+* Python OCC
 
 How to Run
 ----------

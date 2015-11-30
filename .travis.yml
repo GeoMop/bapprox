@@ -21,7 +21,8 @@ before_script:
 #  - pip install coveralls
 virtualenv:
   system_site_packages: true
-script: PYTHONPATH=$PWD/src py.test tests -v --cov=src --cov-report term-missing
+#script: PYTHONPATH=$PWD/src py.test tests -v --cov=src --cov-report term-missing
+script: PYTHONPATH=$PWD/src py.test tests
 #after_success:
 #  - coveralls
 # cache:

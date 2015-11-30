@@ -4,9 +4,11 @@ python:
   - "2.7"
 before_script:
   - sudo add-apt-repository ppa:freecad-maintainers/oce-release -y
-  - sudo add-apt-repository ppa:tpaviot/pythonocc -y
+  # - sudo add-apt-repository ppa:tpaviot/pythonocc -y
+  - sudo add-apt-repository ppa:cae-team/ppa -y
   - sudo apt-get update -qq
-  - sudo apt-get install pythonocc-core python-numpy python-scipy python-matplotlib python-tk
+  # - sudo apt-get install pythonocc-core python-numpy python-scipy python-matplotlib python-tk
+  - sudo apt-get install python-occ python-numpy python-scipy python-matplotlib python-tk
 # addons:
 #   apt:
 #     packages:

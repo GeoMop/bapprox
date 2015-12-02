@@ -5,6 +5,7 @@ This module is used for loading terrain data
 import yaml
 import math
 import sys
+import OCC
 
 from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D
@@ -244,7 +245,16 @@ class TerrainData(object):
             YB = np.arange(min_y, max_y + self.dy / 2.0, self.dy)
             XG,YG = np.meshgrid(XB, YB)
             ZB = interpolate.bisplev(XB, YB, tck)
-            surf = ax.plot_surface(XG.transpose(), YG.transpose(), ZB, color='gray', shade=True, alpha=0.5, antialiased=False, rstride=1, cstride=1)
+            surf = ax.plot_surface(XG.transpose(), YG.transpose(), ZB,
+                                    color='gray', shade=True, alpha=0.5,
+                                    antialiased=False, rstride=1, cstride=1)
             surf.set_linewidth(0)
 
         plt.show()
+
+    def output_approx_data(self):
+        """
+        Try to output approximated data to BREP file format
+        """
+
+        pass

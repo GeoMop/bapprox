@@ -1,3 +1,5 @@
 area: './data/vymezeni.txt'
 terrain: './data/teren.txt'
 rivers: './data/reky_body.txt'
+output: './teren.brep'
+display: true

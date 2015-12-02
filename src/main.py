@@ -22,6 +22,8 @@ def main(yaml_conf_filename):
     terrain.aproximate_2d_borders()
     terrain.aproximate_2d_rivers()
 
+    terrain.output_approx_data()
+
     terrain.display_terrain()
 
 def parse_arguments():

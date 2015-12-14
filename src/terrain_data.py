@@ -5,7 +5,12 @@ This module is used for loading terrain data
 import yaml
 import math
 import sys
+
 import OCC
+import OCC.gp
+import OCC.TColgp
+import OCC.TColStd
+import OCC.Geom
 
 from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D
@@ -145,6 +150,15 @@ class TerrainData(object):
         Try to aproximate terrain with bspline surface
         """
         tck,fp,ior,msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
+        # print "tck: "
+        # print " tck[tx]: ", len(tck[0]), tck[0]
+        # print " tck[ty]: ", len(tck[1]), tck[1]
+        # print " tck[c]: ", len(tck[2]), tck[2]
+        # print " tck[kx]: ", tck[3]
+        # print " tck[ky]: ", tck[4]
+        # print "fp: ", fp
+        # print "ior: ", ior
+        # print "msg:", msg
         self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
         # Compute difference between original terrain data and b-spline surface
         self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
@@ -257,4 +271,87 @@ class TerrainData(object):
         Try to output approximated data to BREP file format
         """
 
-        pass
+        for tck in self.tck.values():
+            tx = tck[0]
+            ty = tck[1]
+            cont = tck[2]
+            udeg = tck[3]
+            vdeg = tck[4]
+            col_len = len(tx) - udeg - 1
+            row_len = len(ty) - vdeg - 1
+            poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
+            i_indexes = range(0, udeg + 1, 2)
+            i_indexes.extend(range(udeg + 1, col_len, 1))
+            i_indexes.extend(range(col_len, len(tx), 2))
+            print len(i_indexes), i_indexes
+            j_indexes = range(0, vdeg + 1, 2)
+            j_indexes.extend(range(vdeg + 1, row_len, 1))
+            j_indexes.extend(range(row_len, len(ty), 2))
+            print len(j_indexes), j_indexes
+
+            # Set poles of b-spline surface
+            c_i = 0
+            print "col_len, row_len: ", col_len, row_len
+            for key_i,i in enumerate(i_indexes):
+                for key_j,j in enumerate(j_indexes):
+                    x = tx[i]
+                    y = ty[j]
+                    z = cont[c_i]
+                    # print i, key_i, j, key_j, c_i, x, y, z
+                    poles.SetValue(key_i + 1, key_j + 1, OCC.gp.gp_Pnt(x, y, z))
+                    c_i += 1
+
+            # Set knots of b-spline surface
+            uknots = OCC.TColStd.TColStd_Array1OfReal(1, col_len)
+            vknots = OCC.TColStd.TColStd_Array1OfReal(1, row_len)
+            print "UKnots"
+            for key_i,i in enumerate(i_indexes):
+                value = (tx[i] - tx[0]) / (tx[-1] - tx[0])
+                print key_i, i, value
+                uknots.SetValue(key_i + 1, value)
+            print "VKnots"
+            for key_j,j in enumerate(j_indexes):
+                value = (ty[j] - ty[0]) / (ty[-1] - ty[0])
+                print key_j, j, value
+                vknots.SetValue(key_j + 1, value)
+
+            # Set multis of b-spline surface
+            umult = OCC.TColStd.TColStd_Array1OfInteger(1, col_len)
+            vmult = OCC.TColStd.TColStd_Array1OfInteger(1, row_len)
+
+            mult_i = 1
+            sum_mult = 0
+            print "UMult"
+            for key_i,i in enumerate(i_indexes):
+                if mult_i == 1 or mult_i == col_len:
+                    mult = 4
+                else:
+                    mult = 1
+                sum_mult += mult
+                umult.SetValue(mult_i, mult)
+                mult_i += 1
+                print key_i, i, mult_i, mult
+            print "sum(mult(i)):", sum_mult
+
+            mult_j = 1
+            sum_mult = 0
+            print "VMult"
+            for key_j,j in enumerate(j_indexes):
+                if mult_j == 1 or mult_j == row_len:
+                    mult = 4
+                else:
+                    mult = 1
+                sum_mult += mult
+                prev_j = j
+                vmult.SetValue(mult_j, mult)
+                mult_j += 1
+                print key_j, j, mult_j, mult
+            print "sum(mult(i)):", sum_mult
+
+            BSPLSURF = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+
+            from OCC.Display.SimpleGui import init_display
+            display, start_display, add_menu, add_function_to_menu = init_display()
+            display.EraseAll()
+            display.DisplayShape(BSPLSURF.GetHandle(), update=True)
+            start_display()

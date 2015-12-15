@@ -277,81 +277,126 @@ class TerrainData(object):
             cont = tck[2]
             udeg = tck[3]
             vdeg = tck[4]
+            print tx, ty, cont, udeg, vdeg, len(tx), len(ty), len(cont)
+
             col_len = len(tx) - udeg - 1
             row_len = len(ty) - vdeg - 1
-            poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
-            i_indexes = range(0, udeg + 1, 2)
-            i_indexes.extend(range(udeg + 1, col_len, 1))
-            i_indexes.extend(range(col_len, len(tx), 2))
+            print "col_len, row_len: ", col_len, row_len
+
+            i_indexes = range(0, col_len)
             print len(i_indexes), i_indexes
-            j_indexes = range(0, vdeg + 1, 2)
-            j_indexes.extend(range(vdeg + 1, row_len, 1))
-            j_indexes.extend(range(row_len, len(ty), 2))
+            j_indexes = range(0, row_len)
             print len(j_indexes), j_indexes
 
+            min_x = min(tx)
+            max_x = max(tx)
+            min_y = min(ty)
+            max_y = max(ty)
+            dx = float(max_x - min_x) / (col_len - 1)
+            dy = float(max_y - min_y) / (row_len - 1)
+            print "dx:", dx, "dy:", dy
+
+            poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
             # Set poles of b-spline surface
             c_i = 0
-            print "col_len, row_len: ", col_len, row_len
-            for key_i,i in enumerate(i_indexes):
-                for key_j,j in enumerate(j_indexes):
-                    x = tx[i]
-                    y = ty[j]
+            for key_i in i_indexes:
+                for key_j in j_indexes:
+                    x = min_x + dx*key_i
+                    y = min_y + dy*key_j
                     z = cont[c_i]
-                    # print i, key_i, j, key_j, c_i, x, y, z
+                    print key_i, key_j, c_i, x, y, z
                     poles.SetValue(key_i + 1, key_j + 1, OCC.gp.gp_Pnt(x, y, z))
                     c_i += 1
 
+            # This have to hold
+            uknot_len = umult_len = len(tx)
+            vknot_len = vmult_len = len(ty)
+
             # Set knots of b-spline surface
-            uknots = OCC.TColStd.TColStd_Array1OfReal(1, col_len)
-            vknots = OCC.TColStd.TColStd_Array1OfReal(1, row_len)
+            uknots = OCC.TColStd.TColStd_Array1OfReal(1, uknot_len)
+            vknots = OCC.TColStd.TColStd_Array1OfReal(1, vknot_len)
             print "UKnots"
-            for key_i,i in enumerate(i_indexes):
-                value = (tx[i] - tx[0]) / (tx[-1] - tx[0])
-                print key_i, i, value
-                uknots.SetValue(key_i + 1, value)
+            last_val = None
+            key_i = 1
+            for tx_val in tx:
+                value = (tx_val - tx[0]) / (tx[-1] - tx[0])
+                if last_val is None or last_val != value:
+                    print key_i, value
+                    uknots.SetValue(key_i, value)
+                    key_i += 1
+                last_val = value
             print "VKnots"
-            for key_j,j in enumerate(j_indexes):
-                value = (ty[j] - ty[0]) / (ty[-1] - ty[0])
-                print key_j, j, value
-                vknots.SetValue(key_j + 1, value)
+            last_val = None
+            key_j = 1
+            for ty_val in ty:
+                value = (ty_val - ty[0]) / (ty[-1] - ty[0])
+                if last_val is None or last_val != value:
+                    print key_j, value
+                    vknots.SetValue(key_j, value)
+                    key_j += 1
+                last_val = value
 
             # Set multis of b-spline surface
-            umult = OCC.TColStd.TColStd_Array1OfInteger(1, col_len)
-            vmult = OCC.TColStd.TColStd_Array1OfInteger(1, row_len)
+            umult = OCC.TColStd.TColStd_Array1OfInteger(1, umult_len)
+            vmult = OCC.TColStd.TColStd_Array1OfInteger(1, vmult_len)
 
+            print "UMult"
             mult_i = 1
             sum_mult = 0
-            print "UMult"
-            for key_i,i in enumerate(i_indexes):
-                if mult_i == 1 or mult_i == col_len:
-                    mult = 4
-                else:
+            key_i = 1
+            last_val = None
+            mult = 0
+            for tx_val in tx:
+                if last_val is None:
                     mult = 1
-                sum_mult += mult
-                umult.SetValue(mult_i, mult)
-                mult_i += 1
-                print key_i, i, mult_i, mult
-            print "sum(mult(i)):", sum_mult
+                elif last_val == tx_val:
+                    mult += 1
+                else:
+                    sum_mult += mult
+                    umult.SetValue(mult_i, mult)
+                    print key_i, mult_i, mult
+                    mult_i += 1
+                    mult = 1
+                last_val = tx_val
+                key_i += 1
+            sum_mult += mult
+            umult.SetValue(mult_i, mult)
+            print key_i, mult_i, mult
+            print "sum(mult(i)):", sum_mult, " col_len: ", col_len, " udeg: ", udeg, "holds: ", col_len == sum_mult - udeg - 1
+            assert col_len == sum_mult - udeg - 1
 
+            print "VMult"
             mult_j = 1
             sum_mult = 0
-            print "VMult"
-            for key_j,j in enumerate(j_indexes):
-                if mult_j == 1 or mult_j == row_len:
-                    mult = 4
-                else:
+            key_j = 1
+            last_val = None
+            mult = 0
+            for ty_val in ty:
+                if last_val is None:
                     mult = 1
-                sum_mult += mult
-                prev_j = j
-                vmult.SetValue(mult_j, mult)
-                mult_j += 1
-                print key_j, j, mult_j, mult
-            print "sum(mult(i)):", sum_mult
+                elif last_val == ty_val:
+                    mult += 1
+                else:
+                    sum_mult += mult
+                    vmult.SetValue(mult_j, mult)
+                    print key_j, mult_j, mult
+                    mult_j += 1
+                    mult = 1
+                key_j += 1
+                last_val = ty_val
+            sum_mult += mult
+            vmult.SetValue(mult_j, mult)
+            print key_j, mult_j, mult
+            print "sum(mult(i)):", sum_mult, "row_len: ", row_len, " vdeg: ", vdeg, "holds: ", row_len == sum_mult - vdeg - 1
+            assert row_len == sum_mult - vdeg - 1
 
-            BSPLSURF = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
-
-            from OCC.Display.SimpleGui import init_display
-            display, start_display, add_menu, add_function_to_menu = init_display()
-            display.EraseAll()
-            display.DisplayShape(BSPLSURF.GetHandle(), update=True)
-            start_display()
+            try:
+                BSPLSURF = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+            except: # Standard_ConstructionError ... who knows, where does it come from :-/
+                print "Something is wrong :-("
+            else:
+                from OCC.Display.SimpleGui import init_display
+                display, start_display, add_menu, add_function_to_menu = init_display()
+                display.EraseAll()
+                display.DisplayShape(BSPLSURF.GetHandle(), update=True)
+                start_display()

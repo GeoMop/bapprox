@@ -271,18 +271,10 @@ class TerrainData(object):
         Try to output approximated data to BREP file format
         """
 
-        for tck in self.tck.values():
-            tx = tck[0]
-            ty = tck[1]
-            cont = tck[2]
-            udeg = tck[3]
-            vdeg = tck[4]
-            print tx, ty, cont, udeg, vdeg, len(tx), len(ty), len(cont)
-
-            col_len = len(tx) - udeg - 1
-            row_len = len(ty) - vdeg - 1
-            print "col_len, row_len: ", col_len, row_len
-
+        def generate_poles(tx, ty, cont, col_len, row_len):
+            """
+            This function generates OCC 2D array of poles
+            """
             i_indexes = range(0, col_len)
             print len(i_indexes), i_indexes
             j_indexes = range(0, row_len)
@@ -307,88 +299,78 @@ class TerrainData(object):
                     print key_i, key_j, c_i, x, y, z
                     poles.SetValue(key_i + 1, key_j + 1, OCC.gp.gp_Pnt(x, y, z))
                     c_i += 1
+            return poles
+
+        def generate_knots(t_values, knots_len):
+            """
+            This function generates OCC 1D array of knots from T-values
+            """
+            knots = OCC.TColStd.TColStd_Array1OfReal(1, knots_len)
+            last_val = None
+            key_i = 1
+            for t_val in t_values:
+                value = (t_val - t_values[0]) / (t_values[-1] - t_values[0])
+                if last_val is None or last_val != value:
+                    print key_i, value
+                    knots.SetValue(key_i, value)
+                    key_i += 1
+                last_val = value
+            return knots
+
+        def generate_mults(t_values, mult_len):
+            """
+            This function generates OCC 1D array of multicities from T-values
+            """
+            multicities = OCC.TColStd.TColStd_Array1OfInteger(1, mult_len)
+            mult_i = 1
+            key_i = 1
+            last_val = None
+            mult = 0
+            for t_val in t_values:
+                if last_val is None:
+                    mult = 1
+                elif last_val == t_val:
+                    mult += 1
+                else:
+                    multicities.SetValue(mult_i, mult)
+                    print key_i, mult_i, mult
+                    mult_i += 1
+                    mult = 1
+                last_val = t_val
+                key_i += 1
+            multicities.SetValue(mult_i, mult)
+            print key_i, mult_i, mult
+            return multicities
+
+        for tck in self.tck.values():
+            tx = tck[0]
+            ty = tck[1]
+            cont = tck[2]
+            udeg = tck[3]
+            vdeg = tck[4]
+            print tx, ty, cont, udeg, vdeg, len(tx), len(ty), len(cont)
+
+            col_len = len(tx) - udeg - 1
+            row_len = len(ty) - vdeg - 1
+            print "col_len, row_len: ", col_len, row_len
+
+            poles = generate_poles(tx, ty, cont, col_len, row_len)
 
             # This have to hold
             uknot_len = umult_len = len(tx)
             vknot_len = vmult_len = len(ty)
 
             # Set knots of b-spline surface
-            uknots = OCC.TColStd.TColStd_Array1OfReal(1, uknot_len)
-            vknots = OCC.TColStd.TColStd_Array1OfReal(1, vknot_len)
             print "UKnots"
-            last_val = None
-            key_i = 1
-            for tx_val in tx:
-                value = (tx_val - tx[0]) / (tx[-1] - tx[0])
-                if last_val is None or last_val != value:
-                    print key_i, value
-                    uknots.SetValue(key_i, value)
-                    key_i += 1
-                last_val = value
+            uknots = generate_knots(tx, uknot_len)
             print "VKnots"
-            last_val = None
-            key_j = 1
-            for ty_val in ty:
-                value = (ty_val - ty[0]) / (ty[-1] - ty[0])
-                if last_val is None or last_val != value:
-                    print key_j, value
-                    vknots.SetValue(key_j, value)
-                    key_j += 1
-                last_val = value
+            vknots = generate_knots(ty, vknot_len)
 
             # Set multis of b-spline surface
-            umult = OCC.TColStd.TColStd_Array1OfInteger(1, umult_len)
-            vmult = OCC.TColStd.TColStd_Array1OfInteger(1, vmult_len)
-
             print "UMult"
-            mult_i = 1
-            sum_mult = 0
-            key_i = 1
-            last_val = None
-            mult = 0
-            for tx_val in tx:
-                if last_val is None:
-                    mult = 1
-                elif last_val == tx_val:
-                    mult += 1
-                else:
-                    sum_mult += mult
-                    umult.SetValue(mult_i, mult)
-                    print key_i, mult_i, mult
-                    mult_i += 1
-                    mult = 1
-                last_val = tx_val
-                key_i += 1
-            sum_mult += mult
-            umult.SetValue(mult_i, mult)
-            print key_i, mult_i, mult
-            print "sum(mult(i)):", sum_mult, " col_len: ", col_len, " udeg: ", udeg, "holds: ", col_len == sum_mult - udeg - 1
-            assert col_len == sum_mult - udeg - 1
-
+            umult = generate_mults(tx, umult_len)
             print "VMult"
-            mult_j = 1
-            sum_mult = 0
-            key_j = 1
-            last_val = None
-            mult = 0
-            for ty_val in ty:
-                if last_val is None:
-                    mult = 1
-                elif last_val == ty_val:
-                    mult += 1
-                else:
-                    sum_mult += mult
-                    vmult.SetValue(mult_j, mult)
-                    print key_j, mult_j, mult
-                    mult_j += 1
-                    mult = 1
-                key_j += 1
-                last_val = ty_val
-            sum_mult += mult
-            vmult.SetValue(mult_j, mult)
-            print key_j, mult_j, mult
-            print "sum(mult(i)):", sum_mult, "row_len: ", row_len, " vdeg: ", vdeg, "holds: ", row_len == sum_mult - vdeg - 1
-            assert row_len == sum_mult - vdeg - 1
+            vmult = generate_mults(ty, vmult_len)
 
             try:
                 BSPLSURF = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)

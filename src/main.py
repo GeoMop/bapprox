@@ -24,7 +24,7 @@ def main(yaml_conf_filename):
 
     terrain.output_approx_data()
 
-    #terrain.display_terrain()
+    terrain.display_terrain()
 
 def parse_arguments():
     """

@@ -109,6 +109,7 @@ class TerrainData(object):
             i = int( math.floor( (self.terrain_data[index][0] - self.min_x) / self.dx ) )
             j = int( math.floor( (self.terrain_data[index][1] - self.min_y) / self.dy ) )
             self.grid[(i, j)] = (self.terrain_data[index][0], self.terrain_data[index][1], self.terrain_data[index][2])
+        self.bspline_surf = None
 
     def load_terrain(self):
         """
@@ -221,83 +222,102 @@ class TerrainData(object):
         Try to display terrain
         """
 
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        plt.hold(True)
+        # Draw terrain using OCC
+        from OCC.Display.SimpleGui import init_display
+        display, start_display, add_menu, add_function_to_menu = init_display()
+        display.EraseAll()
+        display.DisplayShape(self.bspline_surf.GetHandle(), update=True)
+        start_display()
 
-        if self.tW is not None:
-            terrain_points = ax.scatter(self.tX, self.tY, self.tZ, c=self.tW)
-            fig.colorbar(terrain_points, shrink=0.5, aspect=5)
-        else:
-            terrain_points = ax.scatter(self.tX, self.tY, self.tZ)
+        # fig = plt.figure()
+        # ax = fig.gca(projection='3d')
+        # plt.hold(True)
 
-        # Draw rivers
-        for river_id,river in self.rivers_data_3d.items():
-            rx = [item[0] for item in river]
-            ry = [item[1] for item in river]
-            rz = [item[2] for item in river]
-            ax.plot(rx, ry, rz, label=str(river_id))
+        # if self.tW is not None:
+        #     terrain_points = ax.scatter(self.tX, self.tY, self.tZ, c=self.tW)
+        #     fig.colorbar(terrain_points, shrink=0.5, aspect=5)
+        # else:
+        #     terrain_points = ax.scatter(self.tX, self.tY, self.tZ)
 
-        # Draw borders
-        for border_id,border in self.area_borders_3d.items():
-            bx = [item[0] for item in border]
-            by = [item[1] for item in border]
-            bz = [item[2] for item in border]
-            # Make sure border is displayed as cyclic polyline
-            bx.append(bx[0])
-            by.append(by[0])
-            bz.append(bz[0])
-            ax.plot(bx, by, bz)
+        # # Draw rivers
+        # for river_id,river in self.rivers_data_3d.items():
+        #     rx = [item[0] for item in river]
+        #     ry = [item[1] for item in river]
+        #     rz = [item[2] for item in river]
+        #     ax.plot(rx, ry, rz, label=str(river_id))
 
-        # Draw bspline patches
-        for limit,tck in self.tck.items():
-            min_x = limit[0]
-            min_y = limit[1]
-            max_x = limit[2]
-            max_y = limit[3]
-            XB = np.arange(min_x, max_x + self.dx / 2.0, self.dx)
-            YB = np.arange(min_y, max_y + self.dy / 2.0, self.dy)
-            XG,YG = np.meshgrid(XB, YB)
-            ZB = interpolate.bisplev(XB, YB, tck)
-            surf = ax.plot_surface(XG.transpose(), YG.transpose(), ZB,
-                                    color='gray', shade=True, alpha=0.5,
-                                    antialiased=False, rstride=1, cstride=1)
-            surf.set_linewidth(0)
+        # # Draw borders
+        # for border_id,border in self.area_borders_3d.items():
+        #     bx = [item[0] for item in border]
+        #     by = [item[1] for item in border]
+        #     bz = [item[2] for item in border]
+        #     # Make sure border is displayed as cyclic polyline
+        #     bx.append(bx[0])
+        #     by.append(by[0])
+        #     bz.append(bz[0])
+        #     ax.plot(bx, by, bz)
 
-        plt.show()
+        # # Draw bspline patches
+        # for limit,tck in self.tck.items():
+        #     min_x = limit[0]
+        #     min_y = limit[1]
+        #     max_x = limit[2]
+        #     max_y = limit[3]
+        #     XB = np.arange(min_x, max_x + self.dx / 2.0, self.dx)
+        #     YB = np.arange(min_y, max_y + self.dy / 2.0, self.dy)
+        #     XG,YG = np.meshgrid(XB, YB)
+        #     ZB = interpolate.bisplev(XB, YB, tck)
+        #     surf = ax.plot_surface(XG.transpose(), YG.transpose(), ZB,
+        #                             color='gray', shade=True, alpha=0.5,
+        #                             antialiased=False, rstride=1, cstride=1)
+        #     surf.set_linewidth(0)
+
+        # plt.show()
 
     def output_approx_data(self):
         """
         Try to output approximated data to BREP file format
         """
 
+        def unique_values(t_values):
+            """
+            This computes number of unique T values
+            """
+            count = 0
+            last_val = None
+            for t_val in t_values:
+                if last_val is None or last_val != t_val:
+                    count += 1
+                last_val = t_val
+            return count
+
         def generate_poles(tx, ty, cont, col_len, row_len):
             """
             This function generates OCC 2D array of poles
             """
-            i_indexes = range(0, col_len)
-            print len(i_indexes), i_indexes
-            j_indexes = range(0, row_len)
-            print len(j_indexes), j_indexes
+            u_indexes = range(0, col_len)
+            print len(u_indexes), u_indexes
+            v_indexes = range(0, row_len)
+            print len(v_indexes), v_indexes
 
             min_x = min(tx)
             max_x = max(tx)
             min_y = min(ty)
             max_y = max(ty)
-            dx = float(max_x - min_x) / (col_len - 1)
-            dy = float(max_y - min_y) / (row_len - 1)
-            print "dx:", dx, "dy:", dy
+            diff_x = float(max_x - min_x) / (col_len - 1)
+            diff_y = float(max_y - min_y) / (row_len - 1)
+            print "diff_x:", diff_x, "diff_y:", diff_y
 
             poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
             # Set poles of b-spline surface
             c_i = 0
-            for key_i in i_indexes:
-                for key_j in j_indexes:
-                    x = min_x + dx*key_i
-                    y = min_y + dy*key_j
+            for key_u in u_indexes:
+                for key_v in v_indexes:
+                    x = min_x + diff_x * key_u
+                    y = min_y + diff_y * key_v
                     z = cont[c_i]
-                    print key_i, key_j, c_i, x, y, z
-                    poles.SetValue(key_i + 1, key_j + 1, OCC.gp.gp_Pnt(x, y, z))
+                    print key_u + 1, key_v + 1, x, y, z
+                    poles.SetValue(key_u + 1, key_v + 1, OCC.gp.gp_Pnt(x, y, z))
                     c_i += 1
             return poles
 
@@ -343,6 +363,7 @@ class TerrainData(object):
             return multicities
 
         for tck in self.tck.values():
+            # Get SciPy description of B-Spline surface
             tx = tck[0]
             ty = tck[1]
             cont = tck[2]
@@ -350,6 +371,7 @@ class TerrainData(object):
             vdeg = tck[4]
             print tx, ty, cont, udeg, vdeg, len(tx), len(ty), len(cont)
 
+            # Try to convert SciPY B-Spline description to OCC B-Spline description
             col_len = len(tx) - udeg - 1
             row_len = len(ty) - vdeg - 1
             print "col_len, row_len: ", col_len, row_len
@@ -357,8 +379,8 @@ class TerrainData(object):
             poles = generate_poles(tx, ty, cont, col_len, row_len)
 
             # This have to hold
-            uknot_len = umult_len = len(tx)
-            vknot_len = vmult_len = len(ty)
+            uknot_len = umult_len = unique_values(tx)
+            vknot_len = vmult_len = unique_values(ty)
 
             # Set knots of b-spline surface
             print "UKnots"
@@ -373,12 +395,9 @@ class TerrainData(object):
             vmult = generate_mults(ty, vmult_len)
 
             try:
-                BSPLSURF = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+                self.bspline_surf = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
             except: # Standard_ConstructionError ... who knows, where does it come from :-/
-                print "Something is wrong :-("
+                print "Something is wrong :-( ... and OCC will not tell, what is wrong"
             else:
-                from OCC.Display.SimpleGui import init_display
-                display, start_display, add_menu, add_function_to_menu = init_display()
-                display.EraseAll()
-                display.DisplayShape(BSPLSURF.GetHandle(), update=True)
-                start_display()
+                # TODO: output to brep
+                pass

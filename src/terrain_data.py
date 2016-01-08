@@ -109,7 +109,7 @@ class TerrainData(object):
             i = int( math.floor( (self.terrain_data[index][0] - self.min_x) / self.dx ) )
             j = int( math.floor( (self.terrain_data[index][1] - self.min_y) / self.dy ) )
             self.grid[(i, j)] = (self.terrain_data[index][0], self.terrain_data[index][1], self.terrain_data[index][2])
-        self.bspline_surf = None
+        self.bspline_surfaces = {}
 
     def load_terrain(self):
         """
@@ -151,15 +151,6 @@ class TerrainData(object):
         Try to aproximate terrain with bspline surface
         """
         tck,fp,ior,msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
-        # print "tck: "
-        # print " tck[tx]: ", len(tck[0]), tck[0]
-        # print " tck[ty]: ", len(tck[1]), tck[1]
-        # print " tck[c]: ", len(tck[2]), tck[2]
-        # print " tck[kx]: ", tck[3]
-        # print " tck[ky]: ", tck[4]
-        # print "fp: ", fp
-        # print "ior: ", ior
-        # print "msg:", msg
         self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
         # Compute difference between original terrain data and b-spline surface
         self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
@@ -222,57 +213,14 @@ class TerrainData(object):
         Try to display terrain
         """
 
-        # Draw terrain using OCC
+        # Initialize displaying
         from OCC.Display.SimpleGui import init_display
         display, start_display, add_menu, add_function_to_menu = init_display()
         display.EraseAll()
-        display.DisplayShape(self.bspline_surf.GetHandle(), update=True)
+        # Draw all bspline surfaces
+        for bspline in self.bspline_surfaces.values():
+            display.DisplayShape(bspline.GetHandle(), update=True)
         start_display()
-
-        # fig = plt.figure()
-        # ax = fig.gca(projection='3d')
-        # plt.hold(True)
-
-        # if self.tW is not None:
-        #     terrain_points = ax.scatter(self.tX, self.tY, self.tZ, c=self.tW)
-        #     fig.colorbar(terrain_points, shrink=0.5, aspect=5)
-        # else:
-        #     terrain_points = ax.scatter(self.tX, self.tY, self.tZ)
-
-        # # Draw rivers
-        # for river_id,river in self.rivers_data_3d.items():
-        #     rx = [item[0] for item in river]
-        #     ry = [item[1] for item in river]
-        #     rz = [item[2] for item in river]
-        #     ax.plot(rx, ry, rz, label=str(river_id))
-
-        # # Draw borders
-        # for border_id,border in self.area_borders_3d.items():
-        #     bx = [item[0] for item in border]
-        #     by = [item[1] for item in border]
-        #     bz = [item[2] for item in border]
-        #     # Make sure border is displayed as cyclic polyline
-        #     bx.append(bx[0])
-        #     by.append(by[0])
-        #     bz.append(bz[0])
-        #     ax.plot(bx, by, bz)
-
-        # # Draw bspline patches
-        # for limit,tck in self.tck.items():
-        #     min_x = limit[0]
-        #     min_y = limit[1]
-        #     max_x = limit[2]
-        #     max_y = limit[3]
-        #     XB = np.arange(min_x, max_x + self.dx / 2.0, self.dx)
-        #     YB = np.arange(min_y, max_y + self.dy / 2.0, self.dy)
-        #     XG,YG = np.meshgrid(XB, YB)
-        #     ZB = interpolate.bisplev(XB, YB, tck)
-        #     surf = ax.plot_surface(XG.transpose(), YG.transpose(), ZB,
-        #                             color='gray', shade=True, alpha=0.5,
-        #                             antialiased=False, rstride=1, cstride=1)
-        #     surf.set_linewidth(0)
-
-        # plt.show()
 
     def output_approx_data(self):
         """
@@ -362,7 +310,7 @@ class TerrainData(object):
             print key_i, mult_i, mult
             return multicities
 
-        for tck in self.tck.values():
+        for key,tck in self.tck.items():
             # Get SciPy description of B-Spline surface
             tx = tck[0]
             ty = tck[1]
@@ -394,10 +342,4 @@ class TerrainData(object):
             print "VMult"
             vmult = generate_mults(ty, vmult_len)
 
-            try:
-                self.bspline_surf = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
-            except: # Standard_ConstructionError ... who knows, where does it come from :-/
-                print "Something is wrong :-( ... and OCC will not tell, what is wrong"
-            else:
-                # TODO: output to brep
-                pass
+            self.bspline_surfaces[key] = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)

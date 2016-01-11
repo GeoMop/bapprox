@@ -6,16 +6,10 @@ import yaml
 import math
 import sys
 
-import OCC
-import OCC.gp
-import OCC.TColgp
-import OCC.TColStd
-import OCC.Geom
-
 from scipy import interpolate
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
 import numpy as np
+
+import convert.bspline
 
 class TerrainData(object):
     """
@@ -227,119 +221,6 @@ class TerrainData(object):
         Try to output approximated data to BREP file format
         """
 
-        def unique_values(t_values):
-            """
-            This computes number of unique T values
-            """
-            count = 0
-            last_val = None
-            for t_val in t_values:
-                if last_val is None or last_val != t_val:
-                    count += 1
-                last_val = t_val
-            return count
-
-        def generate_poles(tx, ty, cont, col_len, row_len):
-            """
-            This function generates OCC 2D array of poles
-            """
-            u_indexes = range(0, col_len)
-            print len(u_indexes), u_indexes
-            v_indexes = range(0, row_len)
-            print len(v_indexes), v_indexes
-
-            min_x = min(tx)
-            max_x = max(tx)
-            min_y = min(ty)
-            max_y = max(ty)
-            diff_x = float(max_x - min_x) / (col_len - 1)
-            diff_y = float(max_y - min_y) / (row_len - 1)
-            print "diff_x:", diff_x, "diff_y:", diff_y
-
-            poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
-            # Set poles of b-spline surface
-            c_i = 0
-            for key_u in u_indexes:
-                for key_v in v_indexes:
-                    x = min_x + diff_x * key_u
-                    y = min_y + diff_y * key_v
-                    z = cont[c_i]
-                    print key_u + 1, key_v + 1, x, y, z
-                    poles.SetValue(key_u + 1, key_v + 1, OCC.gp.gp_Pnt(x, y, z))
-                    c_i += 1
-            return poles
-
-        def generate_knots(t_values, knots_len):
-            """
-            This function generates OCC 1D array of knots from T-values
-            """
-            knots = OCC.TColStd.TColStd_Array1OfReal(1, knots_len)
-            last_val = None
-            key_i = 1
-            for t_val in t_values:
-                value = (t_val - t_values[0]) / (t_values[-1] - t_values[0])
-                if last_val is None or last_val != value:
-                    print key_i, value
-                    knots.SetValue(key_i, value)
-                    key_i += 1
-                last_val = value
-            return knots
-
-        def generate_mults(t_values, mult_len):
-            """
-            This function generates OCC 1D array of multicities from T-values
-            """
-            multicities = OCC.TColStd.TColStd_Array1OfInteger(1, mult_len)
-            mult_i = 1
-            key_i = 1
-            last_val = None
-            mult = 0
-            for t_val in t_values:
-                if last_val is None:
-                    mult = 1
-                elif last_val == t_val:
-                    mult += 1
-                else:
-                    multicities.SetValue(mult_i, mult)
-                    print key_i, mult_i, mult
-                    mult_i += 1
-                    mult = 1
-                last_val = t_val
-                key_i += 1
-            multicities.SetValue(mult_i, mult)
-            print key_i, mult_i, mult
-            return multicities
-
-        for key,tck in self.tck.items():
-            # Get SciPy description of B-Spline surface
-            tx = tck[0]
-            ty = tck[1]
-            cont = tck[2]
-            udeg = tck[3]
-            vdeg = tck[4]
-            print tx, ty, cont, udeg, vdeg, len(tx), len(ty), len(cont)
-
-            # Try to convert SciPY B-Spline description to OCC B-Spline description
-            col_len = len(tx) - udeg - 1
-            row_len = len(ty) - vdeg - 1
-            print "col_len, row_len: ", col_len, row_len
-
-            poles = generate_poles(tx, ty, cont, col_len, row_len)
-
-            # This have to hold
-            uknot_len = umult_len = unique_values(tx)
-            vknot_len = vmult_len = unique_values(ty)
-
-            # Set knots of b-spline surface
-            print "UKnots"
-            uknots = generate_knots(tx, uknot_len)
-            print "VKnots"
-            vknots = generate_knots(ty, vknot_len)
-
-            # Set multis of b-spline surface
-            print "UMult"
-            umult = generate_mults(tx, umult_len)
-            print "VMult"
-            vmult = generate_mults(ty, vmult_len)
-
-            self.bspline_surfaces[key] = OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+        for key,scipy_bspline in self.tck.items():
+            occ_bspline = convert.bspline.scipy_to_occ(scipy_bspline)
+            self.bspline_surfaces[key] = occ_bspline

@@ -9,6 +9,11 @@ import sys
 from scipy import interpolate
 import numpy as np
 
+import OCC.BRepBuilderAPI
+import OCC.TopoDS
+import OCC.BRepBuilderAPI
+import OCC.BRepTools
+
 import convert.bspline
 
 class TerrainData(object):
@@ -221,6 +226,35 @@ class TerrainData(object):
         Try to output approximated data to BREP file format
         """
 
+        sewing = OCC.BRepBuilderAPI.BRepBuilderAPI_Sewing(0.01, True, True, True, False)
+        sewing.SetFloatingEdgesMode(True)
+
         for key,scipy_bspline in self.tck.items():
             occ_bspline = convert.bspline.scipy_to_occ(scipy_bspline)
             self.bspline_surfaces[key] = occ_bspline
+            error = 1e-6
+            face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(occ_bspline.GetHandle(), error).Shape()
+            sewing.Add(face)
+
+        sewing.Perform()
+        sewing_shape = sewing.SewedShape()
+
+        # shell = OCC.TopoDS.topods_Shell(sewing_shape)
+
+        # make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
+        # make_solid.Add(shell)
+
+        # solid = make_solid.Solid()
+
+        # builder.MakeSolid(solid)
+        # builder.Add(solid, shell)
+
+        # compound = TopoDS_Compound()
+
+        # builder = OCC.BRepBuilderAPI.BRep_Builder()
+        # builder.MakeCompound(compound)
+        # builder.Add(compound, solid)
+
+        # OCC.BRepTools.breptools_Write(compound, self.conf['output'])
+
+        OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])

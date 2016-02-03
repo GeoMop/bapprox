@@ -64,6 +64,18 @@ class BSplineSurfConvertor(object):
         return poles
 
     @staticmethod
+    def __generate_weights(poles, weight_fnc=lambda u, v: 1.0):
+        """
+        This function generates array of weights for poles, based on u and v.
+        When no weight function is defined, then it generates only default values (1.0)
+        """
+        weights = OCC.TColStd.TColStd_Array2OfReal(poles.LowerCol(), poles.ColLength(), poles.LowerRow(), poles.RowLength())
+        for key_u in range(poles.LowerCol(), poles.ColLength()+1):
+            for key_v in range(poles.LowerRow(), poles.RowLength()+1):
+                weights.SetValue(key_u, key_v, weight_fnc(key_u, key_v))
+        return weights
+
+    @staticmethod
     def __generate_knots(t_values, knots_len):
         """
         This function generates OCC 1D array of knots from T-values
@@ -117,6 +129,8 @@ class BSplineSurfConvertor(object):
 
         poles = self.__generate_poles(tx_values, ty_values, cont, col_len, row_len)
 
+        weights = self.__generate_weights(poles)
+
         # This have to hold
         uknot_len = umult_len = self.__unique_values(tx_values)
         vknot_len = vmult_len = self.__unique_values(ty_values)
@@ -129,7 +143,7 @@ class BSplineSurfConvertor(object):
         umult = self.__generate_mults(tx_values, umult_len)
         vmult = self.__generate_mults(ty_values, vmult_len)
 
-        return OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+        return OCC.Geom.Geom_BSplineSurface(poles, weights, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
 
 def scipy_to_occ(scipy_bspline):
     """

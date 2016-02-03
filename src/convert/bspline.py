@@ -143,7 +143,7 @@ class BSplineSurfConvertor(object):
         umult = self.__generate_mults(tx_values, umult_len)
         vmult = self.__generate_mults(ty_values, vmult_len)
 
-        return OCC.Geom.Geom_BSplineSurface(poles, weights, uknots, vknots, umult, vmult, udeg, vdeg, 0, 0)
+        return OCC.Geom.Geom_BSplineSurface(poles, weights, uknots, vknots, umult, vmult, udeg, vdeg, False, False)
 
 def scipy_to_occ(scipy_bspline):
     """

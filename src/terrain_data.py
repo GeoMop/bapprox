@@ -9,7 +9,7 @@ import sys
 from scipy import interpolate
 import numpy as np
 
-import OCC.BRepBuilderAPI
+import OCC.BRep
 import OCC.TopoDS
 import OCC.BRepBuilderAPI
 import OCC.BRepTools
@@ -229,10 +229,10 @@ class TerrainData(object):
         sewing = OCC.BRepBuilderAPI.BRepBuilderAPI_Sewing(0.01, True, True, True, False)
         sewing.SetFloatingEdgesMode(True)
 
+        error = 1e-6
         for key,scipy_bspline in self.tck.items():
             occ_bspline = convert.bspline.scipy_to_occ(scipy_bspline)
             self.bspline_surfaces[key] = occ_bspline
-            error = 1e-6
             face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(occ_bspline.GetHandle(), error).Shape()
             sewing.Add(face)
 
@@ -251,7 +251,7 @@ class TerrainData(object):
 
         # compound = TopoDS_Compound()
 
-        # builder = OCC.BRepBuilderAPI.BRep_Builder()
+        # builder = OCC.BRep.BRep_Builder()
         # builder.MakeCompound(compound)
         # builder.Add(compound, solid)
 

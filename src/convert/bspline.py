@@ -9,9 +9,10 @@ import OCC.TColgp
 import OCC.TColStd
 import OCC.Geom
 
+
 class BSplineSurfConvertor(object):
     """
-    Class used for convertorting SciPy representation
+    Class used for converting SciPy representation
     of B-Spline surface to OpenCascade representation.
     """
 
@@ -94,9 +95,9 @@ class BSplineSurfConvertor(object):
     @staticmethod
     def __generate_mults(t_values, mult_len):
         """
-        This function generates OCC 1D array of multicities from T-values
+        This function generates OCC 1D array of multiplicities from T-values
         """
-        multicities = OCC.TColStd.TColStd_Array1OfInteger(1, mult_len)
+        mults = OCC.TColStd.TColStd_Array1OfInteger(1, mult_len)
         mult_i = 1
         last_val = None
         mult = 0
@@ -106,12 +107,12 @@ class BSplineSurfConvertor(object):
             elif last_val == t_val:
                 mult += 1
             else:
-                multicities.SetValue(mult_i, mult)
+                mults.SetValue(mult_i, mult)
                 mult_i += 1
                 mult = 1
             last_val = t_val
-        multicities.SetValue(mult_i, mult)
-        return multicities
+        mults.SetValue(mult_i, mult)
+        return mults
 
     def convert(self):
         """
@@ -139,11 +140,12 @@ class BSplineSurfConvertor(object):
         uknots = self.__generate_knots(tx_values, uknot_len)
         vknots = self.__generate_knots(ty_values, vknot_len)
 
-        # Set multis of b-spline surface
+        # Set multiplicities of b-spline surface
         umult = self.__generate_mults(tx_values, umult_len)
         vmult = self.__generate_mults(ty_values, vmult_len)
 
         return OCC.Geom.Geom_BSplineSurface(poles, weights, uknots, vknots, umult, vmult, udeg, vdeg, False, False)
+
 
 def scipy_to_occ(scipy_bspline):
     """

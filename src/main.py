@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 """
-This application can be used for approximation of surface using bspline surfaces.
+This application can be used for approximation of surface using
+bspline surfaces.
 """
 
 import argparse
@@ -18,9 +19,9 @@ def main(yaml_conf_filename):
     terrain.load_rivers()
     terrain.load_area()
 
-    terrain.aproximate_terrain()
-    terrain.aproximate_2d_borders()
-    terrain.aproximate_2d_rivers()
+    terrain.approximate_terrain()
+    terrain.approximate_2d_borders()
+    terrain.approximate_2d_rivers()
 
     terrain.output_approx_data()
 

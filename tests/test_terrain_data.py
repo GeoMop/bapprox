@@ -19,9 +19,9 @@ def test_load_yaml_conf():
     """
     terrain = terrain_data.TerrainData("conf.yaml")
     terrain.load_conf_from_yaml()
-    assert terrain.conf.has_key('area') == True and \
-        terrain.conf.has_key('terrain') == True and \
-        terrain.conf.has_key('rivers') == True
+    assert 'area' in terrain.conf and \
+        'terrain' in terrain.conf and \
+        'rivers' in terrain.conf
 
 
 def test_load_terrain_data():

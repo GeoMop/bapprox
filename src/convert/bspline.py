@@ -1,5 +1,5 @@
 """
-This module includes function for convertorting representation of
+This module includes function for converting representation of
 b-spline surface.
 """
 
@@ -70,7 +70,8 @@ class BSplineSurfConvertor(object):
         This function generates array of weights for poles, based on u and v.
         When no weight function is defined, then it generates only default values (1.0)
         """
-        weights = OCC.TColStd.TColStd_Array2OfReal(poles.LowerCol(), poles.ColLength(), poles.LowerRow(), poles.RowLength())
+        weights = OCC.TColStd.TColStd_Array2OfReal(poles.LowerCol(), poles.ColLength(),
+                                                   poles.LowerRow(), poles.RowLength())
         for key_u in range(poles.LowerCol(), poles.ColLength()+1):
             for key_v in range(poles.LowerRow(), poles.RowLength()+1):
                 weights.SetValue(key_u, key_v, weight_fnc(key_u, key_v))

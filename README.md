@@ -21,3 +21,8 @@ How to Run
 ----------
 
     python ./src/main.py -f ./conf.yaml
+
+How to Test
+-----------
+
+    PYTHONPATH=$PWD/src py.test tests

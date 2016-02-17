@@ -4,7 +4,8 @@ using B-Spline surface.
 """
 
 import matplotlib.pyplot as plt
-import numpy as np
+import numpy
+import numpy.linalg
 
 __author__ = 'Jiri Hnidek <jiri.hnidek@tul.cz>, Jiri Kopal <jiri.kopal@tul.cz>'
 
@@ -55,7 +56,9 @@ def test_spline_base():
     :return: None
     """
     # knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
-    knots = np.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
+    # knots = numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
+    knots = gen_knots(7)
+    print(knots)
     num = 100
     n_basf = len(knots) - 3
     y_coords = {}
@@ -80,7 +83,12 @@ def gen_knots(num=10):
     :param num: length of vector
     :return: array of knots
     """
-    return ()
+    knots = numpy.array((0.0,) * num)
+    diff = 1.0 / (num - 3 - 3 + 1)
+    for i in range(3, num - 3 + 1):
+        knots[i] = (i - 2) * diff
+    knots[-3:] = 1.0
+    return knots
 
 
 def approx(terrain_data, u_knots, v_knots):
@@ -89,7 +97,48 @@ def approx(terrain_data, u_knots, v_knots):
     :param terrain_data:
     :return: dictionary of B-Spline patches
     """
+    num_pnt = terrain_data.shape[0]
+
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+
+    b_mat = numpy.zeros((num_pnt, u_n_basf * v_n_basf))
+
+    uf_mat = numpy.matrix((0.0,) * u_n_basf)
+    vf_mat = numpy.matrix((0.0,) * v_n_basf)
+
+    for j in range(0, num_pnt):
+        for k in range(0, u_n_basf):
+            uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j,0])
+        for k in range(0, v_n_basf):
+            vf_mat[(0, k)] = spline_base(v_knots, k, terrain_data[j, 1])
+        b_mat[j] = vf_mat * numpy.kron(numpy.eye(v_n_basf), uf_mat)
+
+    g_mat = terrain_data[:, 2]
+
+    q_mat, r_mat = numpy.linalg.qr(b_mat)
+
+    x_mat = numpy.linalg.lstsq(r_mat, q_mat)[0]
+
+    z_mat = x_mat * g_mat
+
+    print(z_mat)
+
     return {}
 
+
+def test_terrain_approx():
+    """
+    This function is used for testing of terrain approximation
+    """
+    u_knots = gen_knots(7)
+    v_knots = gen_knots(7)
+    terrain_data = numpy.matrix([
+        [0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 1.0, 0.0],
+        [0.5, 0.0, 0.2], [0.5, 0.5, 0.8], [0.5, 1.0, 0.2],
+        [1.0, 0.0, 0.0], [1.0, 0.5, 0.4], [1.0, 1.0, 0.0]])
+    approx(terrain_data, u_knots, v_knots)
+
 if __name__ == '__main__':
-    test_spline_base()
+    # test_spline_base()
+    test_terrain_approx()

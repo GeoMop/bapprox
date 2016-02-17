@@ -15,5 +15,4 @@ figure
 
 if norm(y*one - ones(n,1)) == 0
     disp('OK')
-
 end

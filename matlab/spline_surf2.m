@@ -15,7 +15,7 @@ v_knots = knots;
 
 %%% base test
 
-%basetest2(knots);
+basetest2(knots);
 
 %%% patch boundary
 
@@ -49,7 +49,7 @@ for j = 1:np
     B(j,:) = vf'*kron(eye(v_n_basf),uf');    
 end
 
-g = Xp(:,3)
+g = Xp(:,3);
 
 %%% Solution
 
@@ -65,7 +65,7 @@ z = r\q'*g;
  
 %%% PLOT results
 
-plotresults(u_knots, v_knots, xp, yp, Xp, z)
+plotresults(u_knots, v_knots, xp, yp, Xp, z);
 
 %TODO
 % chyby

@@ -4,7 +4,7 @@ using B-Spline surface.
 """
 
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 __author__ = 'Jiri Hnidek <jiri.hnidek@tul.cz>, Jiri Kopal <jiri.kopal@tul.cz>'
 
@@ -55,7 +55,7 @@ def test_spline_base():
     :return: None
     """
     # knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
-    knots = [0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0]
+    knots = np.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
     num = 100
     n_basf = len(knots) - 3
     y_coords = {}
@@ -74,6 +74,22 @@ def test_spline_base():
     plt.show()
 
 
+def gen_knots(num=10):
+    """
+    This function generates vector of knots according number
+    :param num: length of vector
+    :return: array of knots
+    """
+    return ()
+
+
+def approx(terrain_data, u_knots, v_knots):
+    """
+    This function tries to approximate terrain data with B-Spline surface patches
+    :param terrain_data:
+    :return: dictionary of B-Spline patches
+    """
+    return {}
 
 if __name__ == '__main__':
     test_spline_base()

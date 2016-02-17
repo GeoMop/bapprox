@@ -24,11 +24,10 @@ def spline_base(knot_vec, basis_fnc_idx, t_param):
     if t_param < knot_vec[basis_fnc_idx] or knot_vec[basis_fnc_idx+3] < t_param:
         return 0.0
 
-    knot_vec_len = len(knot_vec)
-    global KVN_CACHE
     try:
         kvn = KVN_CACHE[tuple(knot_vec)]
     except KeyError:
+        knot_vec_len = len(knot_vec)
         kvn = [0] * knot_vec_len
         i = 0
         while i < knot_vec_len - 1:
@@ -73,6 +72,8 @@ def test_spline_base():
     for temp in y_coords.values():
         plt.plot(x_coord, temp.values())
     plt.show()
+
+
 
 if __name__ == '__main__':
     test_spline_base()

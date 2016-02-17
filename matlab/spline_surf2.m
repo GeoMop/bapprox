@@ -35,7 +35,6 @@ v_n_basf = length(v_knots) - 3;
 
 B = zeros(np, u_n_basf * v_n_basf);
 
-
 uf = zeros(u_n_basf, 1);
 vf = zeros(v_n_basf, 1);
 
@@ -46,7 +45,7 @@ for j = 1:np
     for k =1:v_n_basf
         vf(k) = splinebase2(v_knots, k, Xp(j,2));
     end
-    B(j,:) = vf'*kron(eye(v_n_basf),uf');    
+    B(j,:) = vf' * kron(eye(v_n_basf), uf');
 end
 
 g = Xp(:,3);

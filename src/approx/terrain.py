@@ -94,8 +94,10 @@ def gen_knots(num=10):
 def approx(terrain_data, u_knots, v_knots):
     """
     This function tries to approximate terrain data with B-Spline surface patches
-    :param terrain_data:
-    :return: dictionary of B-Spline patches
+    :param terrain_data: matrix of 3D terrain data
+    :param u_knots: array of u knots
+    :param v_knots: array of v knots
+    :return: B-Spline patch
     """
     num_pnt = terrain_data.shape[0]
 
@@ -116,15 +118,27 @@ def approx(terrain_data, u_knots, v_knots):
 
     g_mat = terrain_data[:, 2]
 
-    q_mat, r_mat = numpy.linalg.qr(b_mat)
+    q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
 
-    x_mat = numpy.linalg.lstsq(r_mat, q_mat)[0]
+    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_mat
 
-    z_mat = x_mat * g_mat
+    poles = [[0.0, 0.0, 0.0] * u_n_basf] * v_n_basf
+    for i in range(0, u_n_basf):
+        for j in range(0, v_n_basf):
+            x_coord = float(i)/(u_n_basf - 1)
+            y_coord = float(j)/(v_n_basf - 1)
+            z_coord = z_mat[i * v_n_basf + j, 0]
+            poles[i][j] = (x_coord, y_coord, z_coord)
 
-    print(z_mat)
+    u_mults = [1] * u_n_basf
+    u_mults[0] = u_mults[-1] = 3
+    v_mults = [1] * v_n_basf
+    v_mults[0] = v_mults[-1] = 3
 
-    return {}
+    print(u_mults)
+    print(v_mults)
+
+    return poles, u_knots, v_knots, u_mults, v_mults, u_n_basf, v_n_basf
 
 
 def test_terrain_approx():
@@ -137,7 +151,7 @@ def test_terrain_approx():
         [0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 1.0, 0.0],
         [0.5, 0.0, 0.2], [0.5, 0.5, 0.8], [0.5, 1.0, 0.2],
         [1.0, 0.0, 0.0], [1.0, 0.5, 0.4], [1.0, 1.0, 0.0]])
-    approx(terrain_data, u_knots, v_knots)
+    return approx(terrain_data, u_knots, v_knots)
 
 if __name__ == '__main__':
     # test_spline_base()

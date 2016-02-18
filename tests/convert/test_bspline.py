@@ -14,6 +14,6 @@ def test_approx_convertor_convert():
                      [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0],
                      [0.0, 0.1, 0.0, 0.1, 0.3, 0.1, 0.0, 0.1, 0.0],
                      3, 3]
-    convertor = convert.bspline.BSplineSurfConvertor(scipy_bspline)
+    convertor = convert.bspline.BSplineSurfConvertorSciPy2OCC(scipy_bspline)
     occ_bspline = convertor.convert()
     assert occ_bspline is not None

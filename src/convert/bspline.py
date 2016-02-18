@@ -10,7 +10,7 @@ import OCC.TColStd
 import OCC.Geom
 
 
-class BSplineSurfConvertor(object):
+class BSplineSurfConvertorSciPy2OCC(object):
     """
     Class used for converting SciPy representation
     of B-Spline surface to OpenCascade representation.
@@ -20,7 +20,7 @@ class BSplineSurfConvertor(object):
         """
         Simple 'constructor' of BSplineSurfConvertor
         """
-        super(BSplineSurfConvertor, self).__init__()
+        super(BSplineSurfConvertorSciPy2OCC, self).__init__()
         self.tck = tck
 
     @staticmethod
@@ -153,6 +153,23 @@ def scipy_to_occ(scipy_bspline):
     This function converts SciPy representation of B-Spline surface to
     OCC representation.
     """
-    convertor = BSplineSurfConvertor(scipy_bspline)
+    convertor = BSplineSurfConvertorSciPy2OCC(scipy_bspline)
     occ_bspline = convertor.convert()
     return occ_bspline
+
+
+def raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg):
+    """
+    This function converts raw representation of B-Spline surface to
+    OCC representation.
+    :param poles: Iterable param containing pole
+    :param u_knots: Iterable param containing
+    :param v_knots:
+    :param u_mults:
+    :param v_mults:
+    :param u_deg:
+    :param v_deg:
+    :return:
+    """
+
+    return None

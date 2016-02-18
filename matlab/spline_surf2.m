@@ -5,7 +5,8 @@ close all
 % knots = [0 0 0 1/3 2/3  1 1 1]';
 % knots = [0 0 0 1/2  1 1 1]';
 
-n_basf = 15;
+% n_basf = 15;
+n_basf = 4;
 knots = zeros(n_basf+5, 1);
 knots(3:n_basf+3) = linspace(0, 1, n_basf+1);
 knots(n_basf+4:n_basf+5) = 1;
@@ -19,12 +20,19 @@ basetest2(knots);
 
 %%% patch boundary
 
-xp = [0.1; 0.9];
-yp = [0.1; 1.9];
+% xp = [0.1; 0.9];
+% yp = [0.1; 1.9];
+
+xp = [0.0; 1.0];
+yp = [0.0; 1.0];
 
 %%% Interpolating points
 
-X = getpoints();
+% X = getpoints();
+X = [0.0 0.0 0.0 1.0; 0.0 0.5 0.4 1.0; 0.0 1.0 0.0 1.0;
+	 0.5 0.0 0.2 1.0; 0.5 0.5 0.8 1.0; 0.5 1.0 0.2 1.0;
+	 1.0 0.0 0.0 1.0; 1.0 0.5 0.4 1.0; 1.0 1.0 0.0 1.0];
+
 Xp = transform(X, xp, yp);
 [np k] = size(Xp);
 
@@ -48,6 +56,8 @@ for j = 1:np
     B(j,:) = vf' * kron(eye(v_n_basf), uf');
 end
 
+B
+
 g = Xp(:,3);
 
 %%% Solution
@@ -60,7 +70,12 @@ g = Xp(:,3);
 
 % Stable
 [q r] = qr(B);
-z = r\q'*g;
+
+q
+
+r
+
+z = r\q'*g
  
 %%% PLOT results
 

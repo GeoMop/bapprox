@@ -8,9 +8,11 @@ bspline surfaces.
 import argparse
 import terrain_data
 
+
 def main(yaml_conf_filename):
     """
     Try to read data from all files
+    :param yaml_conf_filename: dictionary with configuration
     """
     terrain = terrain_data.TerrainData(yaml_conf_filename)
 
@@ -26,6 +28,7 @@ def main(yaml_conf_filename):
     terrain.output_approx_data()
 
     terrain.display_terrain()
+
 
 def parse_arguments():
     """

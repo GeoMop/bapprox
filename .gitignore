@@ -2,4 +2,5 @@
 *__pycache__
 src/*.pyc
 src/convert/*.pyc
+src/approx/*.pyc
 .idea

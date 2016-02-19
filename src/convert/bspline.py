@@ -158,11 +158,55 @@ def scipy_to_occ(scipy_bspline):
     return occ_bspline
 
 
+class BSplineSurfConvertorRaw2OCC(object):
+    """
+    Class used for converting raw representation
+    of B-Spline surface (tuple of poles, knots, multiplicities
+    and degrees) to OpenCascade representation.
+    """
+
+    def __init__(self, poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg):
+        """
+        Simple 'constructor' of BSplineSurfConvertorRaw2OCC
+        """
+        super(BSplineSurfConvertorRaw2OCC, self).__init__()
+        self.poles = poles
+        self.u_knots = u_knots
+        self.v_knots = v_knots
+        self.u_mults = u_mults
+        self.v_mults = v_mults
+        self.u_deg = u_deg
+        self.v_deg = v_deg
+
+    def __generate_poles(self):
+        """
+        This method generates OCC array of points
+        """
+        col_len = len(self.poles)
+        row_len = len(self.poles[0])
+        poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
+        for key_u in range(0, col_len):
+            for key_v in range(0, row_len):
+                x_coord = self.poles[key_u][key_v][0]
+                y_coord = self.poles[key_u][key_v][1]
+                z_coord = self.poles[key_u][key_v][2]
+                point = OCC.gp.gp_Pnt(x_coord, y_coord, z_coord)
+                poles.SetValue(key_u + 1, key_v + 1, point)
+        return poles
+
+    def convert(self):
+        """
+        This method do the conversion
+        """
+        poles = self.__generate_poles()
+        return None
+
+
 def raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg):
     """
     This function converts raw representation of B-Spline surface to
     OCC representation.
-    :param poles: Iterable param containing pole
+    :param poles: Iterable param containing poles
     :param u_knots: Iterable param containing
     :param v_knots:
     :param u_mults:
@@ -171,5 +215,6 @@ def raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg):
     :param v_deg:
     :return:
     """
-
-    return None
+    convertor = BSplineSurfConvertorRaw2OCC(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+    occ_bspline = convertor.convert()
+    return occ_bspline

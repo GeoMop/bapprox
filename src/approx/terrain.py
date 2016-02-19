@@ -122,7 +122,7 @@ def approx(terrain_data, u_knots, v_knots):
 
     z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_mat
 
-    poles = [[0.0, 0.0, 0.0] * u_n_basf] * v_n_basf
+    poles = [[0.0] * u_n_basf] * v_n_basf
     for i in range(0, u_n_basf):
         for j in range(0, v_n_basf):
             x_coord = float(i)/(u_n_basf - 1)
@@ -134,9 +134,6 @@ def approx(terrain_data, u_knots, v_knots):
     u_mults[0] = u_mults[-1] = 3
     v_mults = [1] * v_n_basf
     v_mults[0] = v_mults[-1] = 3
-
-    print(u_mults)
-    print(v_mults)
 
     return poles, u_knots, v_knots, u_mults, v_mults, u_n_basf, v_n_basf
 

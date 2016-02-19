@@ -109,9 +109,10 @@ def approx(terrain_data, u_knots, v_knots):
     uf_mat = numpy.matrix((0.0,) * u_n_basf)
     vf_mat = numpy.matrix((0.0,) * v_n_basf)
 
+    # Black magic alias linear algebra :-)
     for j in range(0, num_pnt):
         for k in range(0, u_n_basf):
-            uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j,0])
+            uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j, 0])
         for k in range(0, v_n_basf):
             vf_mat[(0, k)] = spline_base(v_knots, k, terrain_data[j, 1])
         b_mat[j] = vf_mat * numpy.kron(numpy.eye(v_n_basf), uf_mat)
@@ -122,7 +123,8 @@ def approx(terrain_data, u_knots, v_knots):
 
     z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_mat
 
-    poles = [[0.0] * u_n_basf] * v_n_basf
+    # Create list of poles from z_mat
+    poles = [[[0.0, 0.0, 0.0] for i in range(u_n_basf)] for j in range(u_n_basf)]
     for i in range(0, u_n_basf):
         for j in range(0, v_n_basf):
             x_coord = float(i)/(u_n_basf - 1)
@@ -130,26 +132,20 @@ def approx(terrain_data, u_knots, v_knots):
             z_coord = z_mat[i * v_n_basf + j, 0]
             poles[i][j] = (x_coord, y_coord, z_coord)
 
-    u_mults = [1] * u_n_basf
+    # Create degrees
+    u_deg = 2
+    v_deg = 2
+
+    # Convert knot vectors
+    u_knots = list(set(u_knots))
+    u_knots.sort()
+    v_knots = list(set(v_knots))
+    v_knots.sort()
+
+    # Create vectors of multiplicities
+    u_mults = [1] * (u_n_basf - 1)
     u_mults[0] = u_mults[-1] = 3
-    v_mults = [1] * v_n_basf
+    v_mults = [1] * (v_n_basf - 1)
     v_mults[0] = v_mults[-1] = 3
 
-    return poles, u_knots, v_knots, u_mults, v_mults, u_n_basf, v_n_basf
-
-
-def test_terrain_approx():
-    """
-    This function is used for testing of terrain approximation
-    """
-    u_knots = gen_knots(7)
-    v_knots = gen_knots(7)
-    terrain_data = numpy.matrix([
-        [0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 1.0, 0.0],
-        [0.5, 0.0, 0.2], [0.5, 0.5, 0.8], [0.5, 1.0, 0.2],
-        [1.0, 0.0, 0.0], [1.0, 0.5, 0.4], [1.0, 1.0, 0.0]])
-    return approx(terrain_data, u_knots, v_knots)
-
-if __name__ == '__main__':
-    # test_spline_base()
-    test_terrain_approx()
+    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg

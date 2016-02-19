@@ -187,19 +187,53 @@ class BSplineSurfConvertorRaw2OCC(object):
         poles = OCC.TColgp.TColgp_Array2OfPnt(1, col_len, 1, row_len)
         for key_u in range(0, col_len):
             for key_v in range(0, row_len):
+                # print(self.poles[key_u][key_v])
                 x_coord = self.poles[key_u][key_v][0]
                 y_coord = self.poles[key_u][key_v][1]
                 z_coord = self.poles[key_u][key_v][2]
+                # print(x_coord, y_coord, z_coord)
                 point = OCC.gp.gp_Pnt(x_coord, y_coord, z_coord)
                 poles.SetValue(key_u + 1, key_v + 1, point)
         return poles
+
+    def __generate_knots(self):
+        """
+        This function return tuple of two OCC knot arrays (u_knots, v_knots)
+        :return: tuple of two OCC knot arrays
+        """
+        u_knots_len = len(self.u_knots)
+        v_knots_len = len(self.v_knots)
+        u_knots = OCC.TColStd.TColStd_Array1OfReal(1, u_knots_len)
+        v_knots = OCC.TColStd.TColStd_Array1OfReal(1, v_knots_len)
+        for key_i in range(0, u_knots_len):
+            u_knots.SetValue(key_i + 1, self.u_knots[key_i])
+        for key_i in range(0, v_knots_len):
+            v_knots.SetValue(key_i + 1, self.v_knots[key_i])
+        return u_knots, v_knots
+
+    def __generate_mults(self):
+        """
+        Thus function returns tuple of two OCC multiplicities array (u_mults, v_mults)
+        :return:
+        """
+        u_mults_len = len(self.u_mults)
+        v_mults_len = len(self.v_mults)
+        u_mults = OCC.TColStd.TColStd_Array1OfInteger(1, u_mults_len)
+        v_mults = OCC.TColStd.TColStd_Array1OfInteger(1, v_mults_len)
+        for key_i in range(0, u_mults_len):
+            u_mults.SetValue(key_i + 1, self.u_mults[key_i])
+        for key_i in range(0, v_mults_len):
+            v_mults.SetValue(key_i + 1, self.v_mults[key_i])
+        return u_mults, v_mults
 
     def convert(self):
         """
         This method do the conversion
         """
         poles = self.__generate_poles()
-        return None
+        u_knots, v_knots = self.__generate_knots()
+        u_mults, v_mults = self.__generate_mults()
+        return OCC.Geom.Geom_BSplineSurface(poles, u_knots, v_knots, u_mults, v_mults, self.u_deg, self.v_deg, False, False)
 
 
 def raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg):

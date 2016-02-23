@@ -13,8 +13,9 @@ def test_terrain_approx():
     """
     This function is used for testing of terrain approximation
     """
-    u_knots = approx.terrain.gen_knots(10)
-    v_knots = approx.terrain.gen_knots(10)
+    u_knots = approx.terrain.gen_knots(9)
+    v_knots = approx.terrain.gen_knots(9)
+    approx.terrain.test_spline_base(u_knots)
     terrain_data = numpy.matrix([
         [0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 1.0, 0.0],
         [0.5, 0.0, 0.2], [0.5, 0.5, 0.8], [0.5, 1.0, 0.2],

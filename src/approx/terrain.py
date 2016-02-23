@@ -50,15 +50,14 @@ def spline_base(knot_vec, basis_fnc_idx, t_param):
     assert False, "Should not reach this point"
 
 
-def test_spline_base():
+def test_spline_base(knots):
     """
     This function tries to test  spline_base function
+    :param knots NumPy array of knots
     :return: None
     """
-    # knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+    # knots = numpy.array((0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0))
     # knots = numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
-    knots = gen_knots(7)
-    print(knots)
     num = 100
     n_basf = len(knots) - 3
     y_coords = {}
@@ -89,15 +88,6 @@ def gen_knots(num=10):
         knots[i] = (i - 2) * diff
     knots[-3:] = 1.0
     return knots
-
-
-def transform(terrain_data):
-    """
-    This function will transform x and y coordinates to range <0.0, 1.0>
-    :param terrain_data: matrix of 3D terrain data
-    :return: transformed matrix of 3D terrain data
-    """
-
 
 
 def approx(terrain_data, u_knots, v_knots):

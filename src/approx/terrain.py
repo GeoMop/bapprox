@@ -5,12 +5,15 @@ using B-Spline surface.
 
 import matplotlib.pyplot as plt
 import numpy
+import time
+import scipy.sparse
 import numpy.linalg
 
 __author__ = 'Jiri Hnidek <jiri.hnidek@tul.cz>, Jiri Kopal <jiri.kopal@tul.cz>'
 
 # Cache used of knot vector (computation of differences)
 KVN_CACHE = {}
+SB_CACHE = {}
 
 
 def spline_base(knot_vec, basis_fnc_idx, t_param):
@@ -26,28 +29,30 @@ def spline_base(knot_vec, basis_fnc_idx, t_param):
         return 0.0
 
     try:
-        kvn = KVN_CACHE[tuple(knot_vec)]
+        value = SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)]
     except KeyError:
-        knot_vec_len = len(knot_vec)
-        kvn = [0] * knot_vec_len
-        i = 0
-        while i < knot_vec_len - 1:
-            if knot_vec[i] - knot_vec[i+1] != 0:
-                kvn[i] = 1.0
-            i += 1
-        KVN_CACHE[tuple(knot_vec)] = kvn
+        try:
+            kvn = KVN_CACHE[tuple(knot_vec)]
+        except KeyError:
+            knot_vec_len = len(knot_vec)
+            kvn = [0] * knot_vec_len
+            i = 0
+            while i < knot_vec_len - 1:
+                if knot_vec[i] - knot_vec[i+1] != 0:
+                    kvn[i] = 1.0
+                i += 1
+            KVN_CACHE[tuple(knot_vec)] = kvn
+        tks = [knot_vec[basis_fnc_idx + k] for k in range(0, 4)]
+        if knot_vec[basis_fnc_idx] <= t_param <= knot_vec[basis_fnc_idx+1] and kvn[basis_fnc_idx] != 0:
+            value = (t_param - tks[0])**2 / ((tks[2] - tks[0]) * (tks[1] - tks[0]))
+        elif knot_vec[basis_fnc_idx+1] <= t_param <= knot_vec[basis_fnc_idx+2] and kvn[basis_fnc_idx+1] != 0:
+            value = ((t_param - tks[0]) * (tks[2] - t_param)) / ((tks[2] - tks[0]) * (tks[2] - tks[1])) + \
+                   ((t_param - tks[1]) * (tks[3] - t_param)) / ((tks[3] - tks[1]) * (tks[2] - tks[1]))
+        elif knot_vec[basis_fnc_idx+2] <= t_param <= knot_vec[basis_fnc_idx+3] and kvn[basis_fnc_idx+2] != 0:
+            value = (tks[3] - t_param)**2 / ((tks[3] - tks[1]) * (tks[3] - tks[2]))
+        SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)] = value
 
-    tks = [knot_vec[basis_fnc_idx + k] for k in range(0, 4)]
-
-    if knot_vec[basis_fnc_idx] <= t_param <= knot_vec[basis_fnc_idx+1] and kvn[basis_fnc_idx] != 0:
-        return (t_param - tks[0])**2 / ((tks[2] - tks[0]) * (tks[1] - tks[0]))
-    elif knot_vec[basis_fnc_idx+1] <= t_param <= knot_vec[basis_fnc_idx+2] and kvn[basis_fnc_idx+1] != 0:
-        return ((t_param - tks[0]) * (tks[2] - t_param)) / ((tks[2] - tks[0]) * (tks[2] - tks[1])) + \
-               ((t_param - tks[1]) * (tks[3] - t_param)) / ((tks[3] - tks[1]) * (tks[2] - tks[1]))
-    elif knot_vec[basis_fnc_idx+2] <= t_param <= knot_vec[basis_fnc_idx+3] and kvn[basis_fnc_idx+2] != 0:
-        return (tks[3] - t_param)**2 / ((tks[3] - tks[1]) * (tks[3] - tks[2]))
-
-    assert False, "Should not reach this point"
+    return value
 
 
 def test_spline_base(knots):
@@ -108,19 +113,34 @@ def approx(terrain_data, u_knots, v_knots):
     uf_mat = numpy.matrix((0.0,) * u_n_basf)
     vf_mat = numpy.matrix((0.0,) * v_n_basf)
 
-    # Black magic alias linear algebra :-)
+    # Own computation of approximation
+    print('Creating B matrix ...')
+    start_time = time.time()
+    eye_mat = numpy.eye(v_n_basf)
+    # eye_mat = scipy.sparse.eye(v_n_basf)
     for j in range(0, num_pnt):
         for k in range(0, u_n_basf):
             uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j, 0])
         for k in range(0, v_n_basf):
             vf_mat[(0, k)] = spline_base(v_knots, k, terrain_data[j, 1])
-        b_mat[j] = vf_mat * numpy.kron(numpy.eye(v_n_basf), uf_mat)
+        b_mat[j] = vf_mat * numpy.kron(eye_mat, uf_mat)
+        # b_mat[j] = vf_mat * scipy.sparse.kron(eye_mat, uf_mat)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
     g_mat = terrain_data[:, 2]
 
+    print('Computing QR ...')
+    start_time = time.time()
     q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
+    print('Computing Z matrix ...')
+    start_time = time.time()
     z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_mat
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
     # Create list of poles from z_mat
     poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]

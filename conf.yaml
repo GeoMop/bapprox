@@ -2,4 +2,8 @@ area: './data/vymezeni.txt'
 terrain: './data/teren.txt'
 rivers: './data/reky_body.txt'
 output: './teren.brep'
+approximation:
+  solver: 'raw'
+  u_knots_num: 15
+  v_knots_num: 15
 display: true

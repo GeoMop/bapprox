@@ -6,8 +6,6 @@ import yaml
 import math
 import sys
 
-from scipy import interpolate
-
 import OCC.BRep
 import OCC.TopoDS
 import OCC.BRepBuilderAPI
@@ -28,6 +26,7 @@ class TerrainData(object):
         self.terrain_data = []  # Terrain data list of tuples (3d coordinates)
         self.point_count = 0
         self.tck = {}  # Patches of b-spline surface
+        self.raw = {}
         self.tX = None  #
         self.tY = None  # Terrain X,Y,Z cache for numpy API
         self.tZ = None  #
@@ -43,6 +42,7 @@ class TerrainData(object):
         self.dx = 0.0
         self.dy = 0.0
         self.grid = {}  # Cache for bilinear interpolation
+        self.points = None
         self.rivers_data_2d = {}
         self.rivers_data_3d = {}
         self.area_borders_2d = {}
@@ -105,10 +105,18 @@ class TerrainData(object):
         self.dy = self.diff_y / float(self.size_y - 1)
         self.grid = {}
         # Add terrain points to grid
+        self.points = [(0.0, 0.0, 0.0) for i in range(0, self.point_count)]
         for index in range(0, self.point_count):
             i = int(math.floor((self.terrain_data[index][0] - self.min_x) / self.dx))
             j = int(math.floor((self.terrain_data[index][1] - self.min_y) / self.dy))
-            self.grid[(i, j)] = (self.terrain_data[index][0], self.terrain_data[index][1], self.terrain_data[index][2])
+            x_coord = self.terrain_data[index][0]
+            y_coord = self.terrain_data[index][1]
+            z_coord = self.terrain_data[index][2]
+            self.grid[(i, j)] = (x_coord, y_coord, z_coord)
+            # Transform x, y coordinates to range <0, 1>
+            x_coord = (x_coord - self.min_x) / self.diff_x
+            y_coord = (y_coord - self.min_y) / self.diff_y
+            self.points[index] = (x_coord, y_coord, z_coord)
 
     def load_terrain(self):
         """
@@ -149,10 +157,28 @@ class TerrainData(object):
         """
         Try to approximate terrain with bspline surface
         """
-        tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
-        self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
-        # Compute difference between original terrain data and b-spline surface
-        self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
+        if self.conf['approximation']['solver'] == 'scipy':
+            from scipy import interpolate
+            tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
+            self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
+            # Compute difference between original terrain data and b-spline surface
+            self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
+        elif self.conf['approximation']['solver'] == 'raw':
+            import approx.terrain
+            import numpy
+            u_knots = approx.terrain.gen_knots(self.conf['approximation']['u_knots_num'])
+            v_knots = approx.terrain.gen_knots(self.conf['approximation']['v_knots_num'])
+            terrain = numpy.matrix(self.points)
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(terrain, u_knots, v_knots)
+            # Transform x, y coordinates of poles back to original range,
+            # because x, y coordinates were transformed to range <0, 1>
+            for i in range(0, len(poles)):
+                for j in range(0, len(poles[0])):
+                    x_coord = self.min_x + self.diff_x * poles[i][j][0]
+                    y_coord = self.min_y + self.diff_y * poles[i][j][1]
+                    poles[i][j] = (x_coord, y_coord, poles[i][j][2])
+            raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+            self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
     def approximate_2d_borders(self):
         """
@@ -228,8 +254,22 @@ class TerrainData(object):
         sewing.SetFloatingEdgesMode(True)
 
         error = 1e-6
+
         for key, scipy_bspline in self.tck.items():
             occ_bspline = convert.bspline.scipy_to_occ(scipy_bspline)
+            self.bspline_surfaces[key] = occ_bspline
+            face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(occ_bspline.GetHandle(), error).Shape()
+            sewing.Add(face)
+
+        for key, raw_bspline in self.raw.items():
+            poles = raw_bspline[0]
+            u_knots = raw_bspline[1]
+            v_knots = raw_bspline[2]
+            u_mults = raw_bspline[3]
+            v_mults = raw_bspline[4]
+            u_deg = raw_bspline[5]
+            v_deg = raw_bspline[6]
+            occ_bspline = convert.bspline.raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.bspline_surfaces[key] = occ_bspline
             face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(occ_bspline.GetHandle(), error).Shape()
             sewing.Add(face)

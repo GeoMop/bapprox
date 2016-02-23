@@ -91,6 +91,15 @@ def gen_knots(num=10):
     return knots
 
 
+def transform(terrain_data):
+    """
+    This function will transform x and y coordinates to range <0.0, 1.0>
+    :param terrain_data: matrix of 3D terrain data
+    :return: transformed matrix of 3D terrain data
+    """
+
+
+
 def approx(terrain_data, u_knots, v_knots):
     """
     This function tries to approximate terrain data with B-Spline surface patches
@@ -124,7 +133,7 @@ def approx(terrain_data, u_knots, v_knots):
     z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_mat
 
     # Create list of poles from z_mat
-    poles = [[[0.0, 0.0, 0.0] for i in range(u_n_basf)] for j in range(u_n_basf)]
+    poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
     for i in range(0, u_n_basf):
         for j in range(0, v_n_basf):
             x_coord = float(i)/(u_n_basf - 1)

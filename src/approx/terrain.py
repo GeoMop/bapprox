@@ -149,7 +149,9 @@ def approx(terrain_data, u_knots, v_knots):
             x_coord = float(i)/(u_n_basf - 1)
             y_coord = float(j)/(v_n_basf - 1)
             z_coord = z_mat[i * v_n_basf + j, 0]
-            poles[i][j] = (x_coord, y_coord, z_coord)
+            # For some reason we have to switch x and y coordinates.
+            # Shame on me, but I don't know why :-/
+            poles[i][j] = (y_coord, x_coord, z_coord)
 
     # Create degrees
     u_deg = 2

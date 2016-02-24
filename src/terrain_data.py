@@ -5,11 +5,17 @@ This module is used for loading terrain data
 import yaml
 import math
 import sys
+import colorsys
 
 import OCC.BRep
 import OCC.TopoDS
 import OCC.BRepBuilderAPI
 import OCC.BRepTools
+import OCC.Prs3d
+import OCC.Quantity
+import OCC.Graphic3d
+import OCC.Aspect
+import OCC.gp
 
 import convert.bspline
 
@@ -66,7 +72,11 @@ class TerrainData(object):
         self.tZ = [item[2] for item in self.terrain_data]
 
         def find_first_different(array):
-            """Find index of first different item"""
+            """
+            Find index of first different item
+            :param array: list of 3D points
+            :return first index of different 3D point
+            """
             a_index = 1
             first = array[0]
             while array[a_index] == first:
@@ -78,7 +88,11 @@ class TerrainData(object):
                 return -1
 
         def find_first_same(array):
-            """Find index of first same item"""
+            """
+            Find index of first same item
+            :param array: list of 3D points
+            :return index of first same 3D point
+            """
             a_index = 1
             first = array[0]
             while array[a_index] != first:
@@ -161,7 +175,7 @@ class TerrainData(object):
             from scipy import interpolate
             tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
             self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
-            # Compute difference between original terrain data and b-spline surface
+            # Compute difference between original terrain data and B-Spline surface
             self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
         elif self.conf['approximation']['solver'] == 'raw':
             import approx.terrain
@@ -179,6 +193,8 @@ class TerrainData(object):
                     poles[i][j] = (x_coord, y_coord, poles[i][j][2])
             raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
+            # TODO: Compute difference between original terrain data and B-Spline surface
+            self.tW = [0.0 for it in self.terrain_data]
 
     def approximate_2d_borders(self):
         """
@@ -231,6 +247,17 @@ class TerrainData(object):
                 last_z = z_coord
                 self.rivers_data_3d[river_id].append((river_pnt[0], river_pnt[1], z_coord))
 
+    @staticmethod
+    def create_ogl_group(display):
+        """
+        Create a group that will store an OpenGL buffer
+        :param display: OCC display
+        :return tuple of OCC 3D presentation and current OCC 3D group
+        """
+        presentation = OCC.Prs3d.Prs3d_Presentation(display._struc_mgr)
+        group = OCC.Prs3d.Prs3d_Root_CurrentGroup(presentation.GetHandle()).GetObject()
+        return presentation, group
+
     def display_terrain(self):
         """
         Try to display terrain
@@ -243,6 +270,34 @@ class TerrainData(object):
         # Draw all bspline surfaces
         for bspline in self.bspline_surfaces.values():
             display.DisplayShape(bspline.GetHandle(), update=True)
+
+        # Draw points of terrain
+        a_presentation, group = self.create_ogl_group(display)
+        black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
+        asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
+
+        gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+                                                   True,  # hasVColors
+                                                   )
+
+        max_diff = max(self.tW)
+        idx = 1
+        for point in self.terrain_data:
+            pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
+            gg.AddVertex(pnt)
+            # create the point, with a random color
+            if max_diff > 0.0:
+                diff = self.tW[idx - 1] / max_diff
+            else:
+                diff = 0.0
+            rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)
+            gg.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
+            idx += 1
+
+        group.SetPrimitivesAspect(asp.GetHandle())
+        group.AddPrimitiveArray(gg.GetHandle())
+        a_presentation.Display()
+
         start_display()
 
     def output_approx_data(self):

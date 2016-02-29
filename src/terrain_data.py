@@ -6,6 +6,7 @@ import yaml
 import math
 import sys
 import colorsys
+import time
 
 import OCC.BRep
 import OCC.TopoDS
@@ -173,7 +174,11 @@ class TerrainData(object):
         """
         if self.conf['approximation']['solver'] == 'scipy':
             from scipy import interpolate
+            print('SciPy approximation ...')
+            start_time = time.time()
             tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
+            end_time = time.time()
+            print('Computed in {0} seconds.'.format(end_time - start_time))
             self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
             # Compute difference between original terrain data and B-Spline surface
             self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
@@ -183,7 +188,7 @@ class TerrainData(object):
             u_knots = approx.terrain.gen_knots(self.conf['approximation']['u_knots_num'])
             v_knots = approx.terrain.gen_knots(self.conf['approximation']['v_knots_num'])
             terrain = numpy.matrix(self.points)
-            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(terrain, u_knots, v_knots)
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg, tW = approx.terrain.approx(terrain, u_knots, v_knots)
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
             for i in range(0, len(poles)):
@@ -194,7 +199,7 @@ class TerrainData(object):
             raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
             # TODO: Compute difference between original terrain data and B-Spline surface
-            self.tW = [0.0 for it in self.terrain_data]
+            self.tW = tW
 
     def approximate_2d_borders(self):
         """
@@ -281,6 +286,7 @@ class TerrainData(object):
                                                    )
 
         max_diff = max(self.tW)
+        print('Max difference {0}'.format(max_diff))
         idx = 1
         for point in self.terrain_data:
             pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])

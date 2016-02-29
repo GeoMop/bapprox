@@ -6,8 +6,8 @@ using B-Spline surface.
 import matplotlib.pyplot as plt
 import numpy
 import time
-import scipy.sparse
 import numpy.linalg
+# import scipy.sparse
 
 __author__ = 'Jiri Hnidek <jiri.hnidek@tul.cz>, Jiri Kopal <jiri.kopal@tul.cz>'
 
@@ -53,6 +53,36 @@ def spline_base(knot_vec, basis_fnc_idx, t_param):
         SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)] = value
 
     return value
+
+
+def spline_surface(x_coord, y_coord, u_knots, v_knots, z_mat):
+    """
+    Compute z coordinate of surface
+    :param x_coord: X coordinate in range <0, 1>
+    :param y_coord: Y coordinate in range <0, 1>
+    :param u_knots: list of u knots
+    :param v_knots: list of v knots
+    :param z_mat: matrix of "poles"
+    :return: Z coordinate of B-Spline surface
+    """
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+
+    uf_mat = numpy.matrix((0.0,) * u_n_basf)
+    vf_mat = numpy.matrix((0.0,) * v_n_basf)
+
+    eye_mat = numpy.eye(v_n_basf)
+    for k in range(0, u_n_basf):
+        uf_mat[(0, k)] = spline_base(u_knots, k, x_coord)
+    for k in range(0, v_n_basf):
+        vf_mat[(0, k)] = spline_base(v_knots, k, y_coord)
+    # print('vf_mat:', vf_mat)
+    # print('uv_mat:', uf_mat)
+    # print('eye:', eye_mat)
+    # print('z_mat:', z_mat)
+    z_coord = vf_mat * numpy.kron(eye_mat, uf_mat) * z_mat
+
+    return z_coord[0, 0]
 
 
 def test_spline_base(knots):
@@ -142,6 +172,31 @@ def approx(terrain_data, u_knots, v_knots):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
+    # Create list of differences between terrain and points on surface
+    print('Computing differences ...')
+    start_time = time.time()
+    tW = [0.0 for it in terrain_data]
+    idx = 0
+    for point in terrain_data:
+        x_coord = point[0, 0]
+        y_coord = point[0, 1]
+        z_coord = spline_surface(x_coord, y_coord, u_knots, v_knots, z_mat)
+        tW[idx] = abs(z_coord - point[0, 2])
+        idx += 1
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    # Create list of points on surface
+    # u_num = v_num = 2
+    # points = [[float(i)/u_num, float(j)/u_num, 0.0] for i in range(v_num+1) for j in range(u_num+1)]
+    # for i in range(v_num+1):
+    #     for j in range(u_num+1):
+    #         idx = i * v_num + j
+    #         x_coord = points[idx][0]
+    #         y_coord = points[idx][1]
+    #         z_coord = spline_surface(x_coord, y_coord, u_knots, v_knots, z_mat)
+    #         points[idx][2] = z_coord
+
     # Create list of poles from z_mat
     poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
     for i in range(0, u_n_basf):
@@ -169,4 +224,4 @@ def approx(terrain_data, u_knots, v_knots):
     v_mults = [1] * (v_n_basf - 1)
     v_mults[0] = v_mults[-1] = 3
 
-    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg
+    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg, tW

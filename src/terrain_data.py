@@ -62,6 +62,68 @@ class TerrainData(object):
         """
         with open(self.yaml_file_name, 'r') as yaml_file:
             self.conf = yaml.load(yaml_file)
+        # When some values are not set, then set default values
+        # Terrain
+        try:
+            self.conf['terrain']
+        except KeyError:
+            self.conf['terrain'] = {}
+        try:
+            self.conf['terrain']['approximation']
+        except KeyError:
+            self.conf['terrain']['approximation'] = {}
+        try:
+            self.conf['terrain']['approximation']['solver']
+        except KeyError:
+            self.conf['terrain']['approximation']['solver'] = 'scipy'
+        try:
+            self.conf['terrain']['approximation']['u_knots_num']
+        except KeyError:
+            self.conf['terrain']['approximation']['u_knots_num'] = 15
+        try:
+            self.conf['terrain']['approximation']['v_knots_num']
+        except KeyError:
+            self.conf['terrain']['approximation']['v_knots_num'] = 15
+        try:
+            self.conf['terrain']['approximation']['differences']
+        except KeyError:
+            self.conf['terrain']['approximation']['differences'] = False
+        # Output
+        try:
+            self.conf['output']
+        except KeyError:
+            self.conf['output'] = 'terrain.brep'
+        # Area
+        try:
+            self.conf['area']
+        except KeyError:
+            self.conf['area'] = {}
+        try:
+            self.conf['area']['approximate']
+        except KeyError:
+            self.conf['area']['approximate'] = False
+        # Rivers
+        try:
+            self.conf['rivers']
+        except KeyError:
+            self.conf['rivers'] = {}
+        try:
+            self.conf['rivers']['approximate']
+        except KeyError:
+            self.conf['rivers']['approximate'] = False
+        # Display results
+        try:
+            self.conf['display']
+        except KeyError:
+            self.conf['display'] = {}
+        try:
+            self.conf['display']['surface']
+        except KeyError:
+            self.conf['display']['surface'] = True
+        try:
+            self.conf['display']['terrain']
+        except KeyError:
+            self.conf['display']['terrain'] = False
 
     def __post_process_terrain_data(self):
         """
@@ -137,7 +199,7 @@ class TerrainData(object):
         """
         Try to load data of terrain
         """
-        with open(self.conf['terrain'], 'r') as data_file:
+        with open(self.conf['terrain']['input'], 'r') as data_file:
             for line in data_file:
                 self.terrain_data.append(tuple(float(item) for item in line.split()))
         self.__post_process_terrain_data()
@@ -146,49 +208,72 @@ class TerrainData(object):
         """
         Try to load data of rivers
         """
-        with open(self.conf['rivers'], 'r') as data_file:
-            for line in data_file:
-                items = line.split()
-                river_id = int(items[-1])
-                river_coord = (float(items[0]), float(items[1]))
-                try:
-                    river = self.rivers_data_2d[river_id]
-                except KeyError:
-                    river = self.rivers_data_2d[river_id] = []
-                river.append(river_coord)
+        if 'rivers' in self.conf and 'input' in self.conf['rivers']:
+            with open(self.conf['rivers']['input'], 'r') as data_file:
+                for line in data_file:
+                    items = line.split()
+                    river_id = int(items[-1])
+                    river_coord = (float(items[0]), float(items[1]))
+                    try:
+                        river = self.rivers_data_2d[river_id]
+                    except KeyError:
+                        river = self.rivers_data_2d[river_id] = []
+                    river.append(river_coord)
 
     def load_area(self):
         """
         Try to load definition of area border
         """
-        with open(self.conf['area'], 'r') as area_file:
-            self.area_borders_2d[0] = []
-            for line in area_file:
-                items = line.split()
-                # Only one border ATM
-                self.area_borders_2d[0].append(tuple(float(item) for item in items[1:]))
+        if 'area' in self.conf and 'input' in self.conf['area']:
+            with open(self.conf['area']['input'], 'r') as area_file:
+                self.area_borders_2d[0] = []
+                for line in area_file:
+                    items = line.split()
+                    # Only one border ATM
+                    self.area_borders_2d[0].append(tuple(float(item) for item in items[1:]))
 
     def approximate_terrain(self):
         """
         Try to approximate terrain with bspline surface
         """
-        if self.conf['approximation']['solver'] == 'scipy':
+        solver = self.conf['terrain']['approximation']['solver']
+        u_knots_num = self.conf['terrain']['approximation']['u_knots_num']
+        v_knots_num = self.conf['terrain']['approximation']['v_knots_num']
+        comp_diffs = self.conf['terrain']['approximation']['differences']
+
+        if solver == 'scipy':
             from scipy import interpolate
             print('SciPy approximation ...')
             start_time = time.time()
-            tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
+            if u_knots_num == 0 and v_knots_num == 0:
+                tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=5, ky=5, full_output=1)
+            else:
+                tck, fp, ior, msg = interpolate.bisplrep(self.tX, self.tY, self.tZ, kx=4, ky=4,
+                                                         nxest=u_knots_num,
+                                                         nyest=v_knots_num,
+                                                         full_output=1)
             end_time = time.time()
             print('Computed in {0} seconds.'.format(end_time - start_time))
             self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
             # Compute difference between original terrain data and B-Spline surface
-            self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
-        elif self.conf['approximation']['solver'] == 'raw':
+            if comp_diffs is True:
+                print('Computing differences ...')
+                start_time = time.time()
+                self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
+                end_time = time.time()
+                print('Computed in {0} seconds.'.format(end_time - start_time))
+        elif solver == 'qr':
             import approx.terrain
             import numpy
-            u_knots = approx.terrain.gen_knots(self.conf['approximation']['u_knots_num'])
-            v_knots = approx.terrain.gen_knots(self.conf['approximation']['v_knots_num'])
+            u_knots = approx.terrain.gen_knots(u_knots_num)
+            v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
-            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg, tW = approx.terrain.approx(terrain, u_knots, v_knots)
+            # Do own B-Spline approximation o terrain data
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(terrain, u_knots, v_knots)
+            if comp_diffs is True:
+                # Compute difference between original terrain data and B-Spline surface
+                diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)
+                self.tW = diffs
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
             for i in range(0, len(poles)):
@@ -198,8 +283,6 @@ class TerrainData(object):
                     poles[i][j] = (x_coord, y_coord, poles[i][j][2])
             raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
-            # TODO: Compute difference between original terrain data and B-Spline surface
-            self.tW = tW
 
     def approximate_2d_borders(self):
         """
@@ -272,37 +355,52 @@ class TerrainData(object):
         from OCC.Display.SimpleGui import init_display
         display, start_display, add_menu, add_function_to_menu = init_display()
         display.EraseAll()
-        # Draw all bspline surfaces
-        for bspline in self.bspline_surfaces.values():
-            display.DisplayShape(bspline.GetHandle(), update=True)
 
-        # Draw points of terrain
-        a_presentation, group = self.create_ogl_group(display)
-        black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
-        asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
+        diffs = self.conf['terrain']['approximation']['differences']
+        display_surf = self.conf['display']['surface']
+        display_terr = self.conf['display']['terrain']
 
-        gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
-                                                   True,  # hasVColors
-                                                   )
+        if display_surf is True:
+            # Draw all bspline surfaces
+            for bspline in self.bspline_surfaces.values():
+                display.DisplayShape(bspline.GetHandle(), update=True)
 
-        max_diff = max(self.tW)
-        print('Max difference {0}'.format(max_diff))
-        idx = 1
-        for point in self.terrain_data:
-            pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
-            gg.AddVertex(pnt)
-            # create the point, with a random color
-            if max_diff > 0.0:
-                diff = self.tW[idx - 1] / max_diff
+        if display_terr is True:
+            # Draw points of terrain
+            a_presentation, group = self.create_ogl_group(display)
+            black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
+            asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
+
+            if diffs is True:
+                gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+                                                           True,  # hasVColors
+                                                           )
             else:
-                diff = 0.0
-            rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)
-            gg.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
-            idx += 1
+                gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+                                                           False,  # hasVColors
+                                                           )
 
-        group.SetPrimitivesAspect(asp.GetHandle())
-        group.AddPrimitiveArray(gg.GetHandle())
-        a_presentation.Display()
+            if diffs is True:
+                max_diff = max(self.tW)
+                print('Max difference {0}'.format(max_diff))
+            idx = 1
+            # Default RGB color of point (white)
+            for point in self.terrain_data:
+                pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
+                gg.AddVertex(pnt)
+                if diffs is True:
+                    # create the point, with a diff color
+                    if max_diff > 0.0:
+                        diff = self.tW[idx - 1] / max_diff
+                    else:
+                        diff = 0.0
+                    rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)
+                    gg.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
+                idx += 1
+
+            group.SetPrimitivesAspect(asp.GetHandle())
+            group.AddPrimitiveArray(gg.GetHandle())
+            a_presentation.Display()
 
         start_display()
 

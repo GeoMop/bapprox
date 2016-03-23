@@ -1,9 +1,28 @@
-area: './data/vymezeni.txt'
-terrain: './data/teren.txt'
-rivers: './data/reky_body.txt'
-output: './teren.brep'
-approximation:
-  solver: 'raw'
-  u_knots_num: 15
-  v_knots_num: 15
-display: true
+terrain:
+  input: './data/teren.txt'
+  #input: './data/teren_10.txt'
+  #input: './data/baze_100m_export.csv'
+  approximation:
+    # posible values of solver: scipy, qr
+    solver: 'scipy'
+    # Optional: set number of knots (default: 15x15)
+    u_knots_num: 15
+    v_knots_num: 15
+    # Optional: compute differences between B-Spline surface and terrain
+    differences: true
+
+# Optional
+area:
+  input: './data/vymezeni.txt'
+  approximate: false
+
+# Optional
+rivers:
+  input: './data/reky_body.txt'
+  approximate: false
+
+output: 'terrain.brep'
+
+display:
+  terrain: true
+  surface: true

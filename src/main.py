@@ -22,12 +22,17 @@ def main(yaml_conf_filename):
     terrain.load_area()
 
     terrain.approximate_terrain()
-    terrain.approximate_2d_borders()
-    terrain.approximate_2d_rivers()
+
+    if terrain.conf['area']['approximate'] is True:
+        terrain.approximate_2d_borders()
+
+    if terrain.conf['rivers']['approximate'] is True:
+        terrain.approximate_2d_rivers()
 
     terrain.output_approx_data()
 
-    terrain.display_terrain()
+    if terrain.conf['display']['terrain'] is True or terrain.conf['display']['surface']:
+        terrain.display_terrain()
 
 
 def parse_arguments():

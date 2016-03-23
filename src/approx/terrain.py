@@ -284,9 +284,22 @@ def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
     return points
 
 
-def approx(terrain_data, u_knots, v_knots):
+def approx_svd(terrain_data, u_knots, v_knots):
     """
     This function tries to approximate terrain data with B-Spline surface patches
+    using SVD decomposition
+    :param terrain_data: matrix of 3D terrain data
+    :param u_knots: array of u knots
+    :param v_knots: array of v knots
+    :return: B-Spline patch
+    """
+    pass
+
+
+def approx_qr(terrain_data, u_knots, v_knots):
+    """
+    This function tries to approximate terrain data with B-Spline surface patches
+    using QR decomposition
     :param terrain_data: matrix of 3D terrain data
     :param u_knots: array of u knots
     :param v_knots: array of v knots
@@ -360,3 +373,20 @@ def approx(terrain_data, u_knots, v_knots):
     v_mults[0] = v_mults[-1] = 3
 
     return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg
+
+
+def approx(method, terrain_data, u_knots, v_knots):
+    """
+    This function tries to approximate terrain data with B-Spline surface patches
+    :param method: method used for approximation
+    :param terrain_data: matrix of 3D terrain data
+    :param u_knots: array of u knots
+    :param v_knots: array of v knots
+    :return: B-Spline patch
+    """
+    if method == 'qr':
+        return approx_qr(terrain_data, u_knots, v_knots)
+    elif method == 'svd':
+        return approx_svd(terrain_data, u_knots, v_knots)
+    else:
+        raise TypeError("Wrong argument method: {0}".format(method))

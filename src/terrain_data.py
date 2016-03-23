@@ -271,7 +271,7 @@ class TerrainData(object):
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
             # Do own B-Spline approximation o terrain data
-            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(terrain, u_knots, v_knots)
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(solver, terrain, u_knots, v_knots)
             if comp_diffs is True:
                 # Compute difference between original terrain data and B-Spline surface
                 diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)

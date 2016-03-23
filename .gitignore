@@ -4,3 +4,4 @@ src/*.pyc
 src/convert/*.pyc
 src/approx/*.pyc
 .idea
+terrain.brep

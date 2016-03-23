@@ -253,7 +253,9 @@ class TerrainData(object):
                                                          nyest=v_knots_num,
                                                          full_output=1)
             end_time = time.time()
-            print('Computed in {0} seconds.'.format(end_time - start_time))
+            print('Computed in {0} seconds with WSoSR: {1}.'.format(end_time - start_time, fp))
+            if ior > 0:
+                print('Warning({0}): {1}.'.format(ior, msg))
             self.tck[(self.min_x, self.min_y, self.max_x, self.max_y)] = tck
             # Compute difference between original terrain data and B-Spline surface
             if comp_diffs is True:
@@ -372,11 +374,11 @@ class TerrainData(object):
             asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
 
             if diffs is True:
-                gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+                pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
                                                            True,  # hasVColors
                                                            )
             else:
-                gg = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+                pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
                                                            False,  # hasVColors
                                                            )
 
@@ -387,7 +389,7 @@ class TerrainData(object):
             # Default RGB color of point (white)
             for point in self.terrain_data:
                 pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
-                gg.AddVertex(pnt)
+                pnt_array.AddVertex(pnt)
                 if diffs is True:
                     # create the point, with a diff color
                     if max_diff > 0.0:
@@ -395,11 +397,11 @@ class TerrainData(object):
                     else:
                         diff = 0.0
                     rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)
-                    gg.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
+                    pnt_array.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
                 idx += 1
 
             group.SetPrimitivesAspect(asp.GetHandle())
-            group.AddPrimitiveArray(gg.GetHandle())
+            group.AddPrimitiveArray(pnt_array.GetHandle())
             a_presentation.Display()
 
         start_display()

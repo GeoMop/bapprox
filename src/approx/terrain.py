@@ -25,44 +25,44 @@ def basis_factory(degree):
 
     if degree == 0:
 
-        def basis_function(knots, i, t):
+        def basis_function(knots, idx, t_param):
             """
             The basis function for degree = 0
             :param knots: list of knot vectors
-            :param i:
-            :param t:
+            :param idx:
+            :param t_param:
             """
-            t_this = knots[i]
-            t_next = knots[i+1]
-            out = 1.0 if t_this <= t < t_next else 0.0
+            t_this = knots[idx]
+            t_next = knots[idx + 1]
+            out = 1.0 if t_this <= t_param < t_next else 0.0
             return out
     else:
 
-        def basis_function(knots, i, t):
+        def basis_function(knots, idx, t_param):
             """
             The basis function for degree > 0
             :param knots: list of knots
-            :param i:
-            :param t:
+            :param idx:
+            :param t_param:
             """
             out = 0.0
             try:
-                t_this = knots[i]
-                t_next = knots[i+1]
-                t_precog = knots[i+degree]
-                t_horizon = knots[i+degree+1]
+                t_this = knots[idx]
+                t_next = knots[idx + 1]
+                t_precog = knots[idx + degree]
+                t_horizon = knots[idx + degree + 1]
             except IndexError:
                 return 0.0
 
-            top = t - t_this
+            top = t_param - t_this
             bottom = t_precog - t_this
             if bottom != 0:
-                out = top / bottom * basis_factory(degree-1)(knots, i, t)
+                out = top / bottom * basis_factory(degree-1)(knots, idx, t_param)
 
-            top = t_horizon - t
+            top = t_horizon - t_param
             bottom = t_horizon - t_next
             if bottom != 0:
-                out += top / bottom * basis_factory(degree-1)(knots, i+1, t)
+                out += top / bottom * basis_factory(degree-1)(knots, idx + 1, t_param)
 
             return out
 
@@ -161,9 +161,9 @@ def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
     # _u_knot: (0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0)
     _u_knots = []
     _v_knots = []
-    for idx,mult in enumerate(u_mults):
+    for idx, mult in enumerate(u_mults):
         _u_knots.extend([u_knots[idx]] * mult)
-    for idx,mult in enumerate(v_mults):
+    for idx, mult in enumerate(v_mults):
         _v_knots.extend([v_knots[idx]] * mult)
 
     u_n_basf = len(_u_knots) - 3
@@ -250,9 +250,7 @@ def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
         # approximated points
         u_param = point[0, 0]
         v_param = point[0, 1]
-        x_coord, y_coord, z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)
-        # assert x_coord == u_param
-        # assert y_coord == v_param
+        z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)[2]
         diff[idx] = abs(z_coord - point[0, 2])
         idx += 1
     end_time = time.time()

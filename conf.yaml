@@ -4,7 +4,7 @@ terrain:
   #input: './data/baze_100m_export.csv'
   approximation:
     # posible values of solver: scipy, qr, svd
-    solver: 'qr'
+    solver: 'svd'
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases).

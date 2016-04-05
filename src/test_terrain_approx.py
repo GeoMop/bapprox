@@ -20,9 +20,9 @@ def test_terrain_approx(method):
     # Show base functions for u knot vector
     # approx.terrain.test_spline_base(u_knots)
     terrain_data = numpy.matrix([
-        [0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 1.0, 0.0],
-        [0.5, 0.0, 0.2], [0.5, 0.5, 0.8], [0.5, 1.0, 0.2],
-        [1.0, 0.0, 0.0], [1.0, 0.5, 0.4], [1.0, 1.0, 0.0]])
+        [0.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.4, 1.0], [0.0, 1.0, 0.0, 1.0],
+        [0.5, 0.0, 0.2, 1.0], [0.5, 0.5, 0.8, 1.0], [0.5, 1.0, 0.2, 1.0],
+        [1.0, 0.0, 0.0, 1.0], [1.0, 0.5, 0.4, 1.0], [1.0, 1.0, 0.0, 1.0]])
     return approx.terrain.approx(method, terrain_data, u_knots, v_knots)
 
 
@@ -69,6 +69,18 @@ def display_results(occ_bspline, points):
     start_display()
 
 
+def test_svd_approx():
+    """
+    Test our approximation of B-Spline surface
+    :return: None
+    """
+    # test_spline_base()
+    poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = test_terrain_approx('svd')
+    occ_bspline = convert.bspline.raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+    points = approx.terrain.gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=50, v_num=50)
+    display_results(occ_bspline, points)
+
+
 def test_qr_approx():
     """
     Test our approximation of B-Spline surface
@@ -110,9 +122,11 @@ def test_scipy_approx():
 
 
 if __name__ == '__main__':
-    test_qr_approx()
+    test_svd_approx()
+    # test_qr_approx()
     # test_scipy_approx()
     # u_knots = approx.terrain.gen_knots(9)
+    # approx.terrain.test_spline_base_vec(u_knots)
     # approx.terrain.test_base_fact(u_knots)
     # approx.terrain.test_spline_base(u_knots)
     # # approx.terrain.norm_blend(u_knots, 1, 0.7)

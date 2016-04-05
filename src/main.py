@@ -31,7 +31,7 @@ def main(yaml_conf_filename):
 
     terrain.output_approx_data()
 
-    if terrain.conf['display']['terrain'] is True or terrain.conf['display']['surface']:
+    if terrain.conf['display']['terrain'] is True or terrain.conf['display']['surface'] is True:
         terrain.display_terrain()
 
 

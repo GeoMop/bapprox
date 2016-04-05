@@ -264,7 +264,7 @@ class TerrainData(object):
                 self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
                 end_time = time.time()
                 print('Computed in {0} seconds.'.format(end_time - start_time))
-        elif solver == 'qr':
+        elif solver == 'qr' or solver == 'svd':
             import approx.terrain
             import numpy
             u_knots = approx.terrain.gen_knots(u_knots_num)

@@ -72,7 +72,7 @@ def basis_factory(degree):
     return basis_function
 
 
-def test_base_fact(knots):
+def test_base_factory(knots):
     """
     This function tries to test  spline_base function
     :param knots NumPy array of knots
@@ -97,7 +97,123 @@ def test_base_fact(knots):
 
     for temp in y_coords.values():
         plt.plot(x_coord, temp.values())
-    # plt.show()
+
+
+def build_ls_matrix(u_knots, v_knots, terrain):
+    """
+    Try to create matrix for SVD decomposition
+    :param u_knots:
+    :param v_knots:
+    :param terrain:
+    :return:
+    """
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+    terrain_len = len(terrain)
+
+    mat_b = numpy.empty((terrain_len, u_n_basf * v_n_basf))
+    interval = numpy.empty((terrain_len, 2))
+
+    for idx in range(0, terrain_len):
+        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0])
+        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1])
+        mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
+        interval[idx][0] = i_idx
+        interval[idx][1] = j_idx
+
+    return mat_b, interval
+
+
+def spline_base_vec(knot_vec, t_param):
+    """
+    This function compute normalized blending function aka base function of B-Spline curve or surface.
+    :param knot_vec:
+    :param t_param:
+    :return:
+    """
+
+    def find_index(_knot_vec, _t_param):
+        """
+        This function try to find index for given t_param in knot_vec that
+        is covered by all (4) base functions.
+        :param _knot_vec:
+        :param _t_param:
+        :return:
+        """
+        knot_vec_len = len(_knot_vec) - 5
+        estim_idx = int(2 + _t_param * knot_vec_len)
+        if _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
+            # Usually only one step
+            while _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
+                estim_idx -= 1
+        return estim_idx - 2
+
+    idx = find_index(knot_vec, t_param)
+
+    basis_values = numpy.zeros(len(knot_vec) - 3)
+
+    tk1 = knot_vec[idx+1]
+    tk2 = knot_vec[idx+2]
+    tk3 = knot_vec[idx+3]
+    tk4 = knot_vec[idx+4]
+
+    d31 = tk3 - tk1
+    d32 = tk3 - tk2
+    d42 = tk4 - tk2
+
+    dt1 = t_param - tk1
+    dt2 = t_param - tk2
+    d3t = tk3 - t_param
+    d4t = tk4 - t_param
+
+    d31_d32 = d31 * d32
+    d42_d32 = d42 * d32
+
+    # 1 & 2
+    if d31_d32 == 0.0:
+        basis_values[idx] = 0.0
+        basis_values[idx+1] = 0.0
+    else:
+        basis_values[idx] = (d3t*d3t) / d31_d32
+        basis_values[idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+    # 2 & 3
+    if d42_d32 == 0.0:
+        basis_values[idx+1] = 0.0
+        basis_values[idx+2] = 0.0
+    else:
+        basis_values[idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        basis_values[idx+2] = (dt2*dt2) / d42_d32
+
+    return basis_values, idx
+
+
+def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))):
+    """
+    Test optimized version of spline base function
+    :param knots: numpy array of knots
+    :return:
+    """
+    # knots = numpy.array((0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0))
+    # t_param = 1.0
+    # basis_values, idx = spline_base_vec(knots, t_param)
+    # print(knots, t_param, idx, basis_values)
+
+    num = 100
+    n_basf = len(knots) - 3
+    y_coords = {}
+    for k in range(0, n_basf):
+        temp = {}
+        for i in range(0, num+1):
+            t_param = min(knots) + max(knots) * i / float(num)
+            temp[i] = spline_base_vec(knots, t_param)[0]
+        y_coords[k] = temp
+
+    diff_x = (max(knots) - min(knots)) / num
+    x_coord = [min(knots) + diff_x*i for i in range(0, num+1)]
+
+    for temp in y_coords.values():
+        plt.plot(x_coord, temp.values())
+    plt.show()
 
 
 def spline_base(knot_vec, basis_fnc_idx, t_param):
@@ -234,10 +350,12 @@ def gen_knots(num=10):
 def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
     """
     Try to compute difference between terrain data and B-Spline surface approximation.
-    :param terrain_data:
-    :param poles:
-    :param u_knots:
-    :param v_knots:
+    :param terrain_data: iterable data structure containing 3D points of terrain
+    :param poles: tuple of poles
+    :param u_knots: tuple of knots (u direction)
+    :param v_knots: tuple of knots (v direction)
+    :param u_mults: tuple of multiplicities (u direction)
+    :param v_mults: tuple of multiplicities (v direction)
     :return: list of differences
     """
     print('Computing differences ...')
@@ -261,11 +379,13 @@ def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
 def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
     """
     Generates points from B-Spline approximation
-    :param poles:
-    :param u_knots:
-    :param v_knots:
-    :param u_num:
-    :param v_num:
+    :param poles: tuple of poles
+    :param u_knots: tuple of knots (u direction)
+    :param v_knots: tuple of knots (v direction)
+    :param u_mults: tuple of multiplicities (u direction)
+    :param v_mults: tuple of multiplicities (v direction)
+    :param u_num: number of points generated in u direction
+    :param v_num: number of points generated in u direction
     :return: list of points laying on B-Spline surface
     """
     # Create list of points on surface
@@ -293,7 +413,74 @@ def approx_svd(terrain_data, u_knots, v_knots):
     :param v_knots: array of v knots
     :return: B-Spline patch
     """
-    pass
+    mat_b, interval = build_ls_matrix(u_knots, v_knots, terrain_data)
+
+    # mat_w = numpy.diagflat(terrain_data[:, 3])
+
+    mat_g = numpy.matrix(terrain_data[:, 2])
+
+    mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b, full_matrices=False, compute_uv=True)
+
+    mat_s = numpy.diagflat(mat_s)
+
+    mat_crop_s = numpy.matrix(data=mat_s, copy=True)
+
+    rows, cols = mat_crop_s.shape
+
+    # Iterate over matrix and crop too big values to zero
+    for i in range(0, rows):
+        for j in range(0, cols):
+            if mat_crop_s[i, j] < 0.001:
+                mat_crop_s[i, j] = 0.0
+
+    mat_sdi = numpy.matrix(data=mat_s, copy=True)
+
+    # Inverse values in matrix
+    for i in range(0, rows):
+        for j in range(0, cols):
+            if mat_s[i, j] != 0.0:
+                mat_sdi[i, j] = 1.0 / mat_s[i, j]
+
+    mat_s_rows, mat_s_cols = mat_s.shape
+
+    rank = numpy.linalg.matrix_rank(mat_s)
+
+    mat_si = numpy.matrix(numpy.zeros((mat_s_rows, mat_s_cols)))
+
+    mat_si[:rank+1, :rank+1] = mat_sdi
+
+    z_mat = mat_v.transpose() * mat_si.transpose() * mat_u.transpose() * mat_g
+
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+
+    # Create list of poles from z_mat
+    poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
+
+    for i in range(0, u_n_basf):
+        for j in range(0, v_n_basf):
+            x_coord = float(i)/(u_n_basf - 1)
+            y_coord = float(j)/(v_n_basf - 1)
+            z_coord = z_mat[i * v_n_basf + j, 0]
+            poles[i][j] = (x_coord, y_coord, z_coord)
+
+    # Create degrees
+    u_deg = 2
+    v_deg = 2
+
+    # Convert knot vectors
+    u_knots = list(set(u_knots))
+    u_knots.sort()
+    v_knots = list(set(v_knots))
+    v_knots.sort()
+
+    # Create vectors of multiplicities
+    u_mults = [1] * (u_n_basf - 1)
+    u_mults[0] = u_mults[-1] = 3
+    v_mults = [1] * (v_n_basf - 1)
+    v_mults[0] = v_mults[-1] = 3
+
+    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg
 
 
 def approx_qr(terrain_data, u_knots, v_knots):

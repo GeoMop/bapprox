@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy
 import time
 import numpy.linalg
-# import scipy.sparse
+import scipy.sparse
 
 __author__ = 'Jiri Hnidek <jiri.hnidek@tul.cz>, Jiri Kopal <jiri.kopal@tul.cz>'
 
@@ -24,7 +24,6 @@ def basis_factory(degree):
     """
 
     if degree == 0:
-
         def basis_function(knots, idx, t_param):
             """
             The basis function for degree = 0
@@ -37,7 +36,6 @@ def basis_factory(degree):
             out = 1.0 if t_this <= t_param < t_next else 0.0
             return out
     else:
-
         def basis_function(knots, idx, t_param):
             """
             The basis function for degree > 0
@@ -48,80 +46,31 @@ def basis_factory(degree):
             out = 0.0
             try:
                 t_this = knots[idx]
-                t_next = knots[idx + 1]
                 t_precog = knots[idx + degree]
+            except IndexError:
+                pass
+            else:
+                top = t_param - t_this
+                bottom = t_precog - t_this
+                if bottom != 0:
+                    out = top / bottom * basis_factory(degree - 1)(knots, idx, t_param)
+            try:
+                t_next = knots[idx + 1]
                 t_horizon = knots[idx + degree + 1]
             except IndexError:
-                return 0.0
-
-            top = t_param - t_this
-            bottom = t_precog - t_this
-            if bottom != 0:
-                out = top / bottom * basis_factory(degree-1)(knots, idx, t_param)
-
-            top = t_horizon - t_param
-            bottom = t_horizon - t_next
-            if bottom != 0:
-                out += top / bottom * basis_factory(degree-1)(knots, idx + 1, t_param)
+                pass
+            else:
+                top = t_horizon - t_param
+                bottom = t_horizon - t_next
+                if bottom != 0:
+                    out += top / bottom * basis_factory(degree - 1)(knots, idx + 1, t_param)
 
             return out
 
     # "Enrich" the function with information about its "configuration"
-    basis_function.lower = None if degree == 0 else basis_factory(degree-1)
+    basis_function.lower = None if degree == 0 else basis_factory(degree - 1)
     basis_function.degree = degree
     return basis_function
-
-
-def test_base_factory(knots):
-    """
-    This function tries to test  spline_base function
-    :param knots NumPy array of knots
-    :return: None
-    """
-    # knots = numpy.array((0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0))
-    # knots = numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
-    num = 100
-    n_basf = len(knots) - 3
-    y_coords = {}
-    base_fact = basis_factory(2)
-    for k in range(0, n_basf):
-        temp = {}
-        for i in range(0, num+1):
-            t_param = min(knots) + max(knots) * i / float(num)
-            temp[i] = base_fact(knots, k, t_param)
-            # temp[i] = norm_blend(knots, k, t_param)
-        y_coords[k] = temp
-
-    diff_x = (max(knots) - min(knots)) / num
-    x_coord = [min(knots) + diff_x*i for i in range(0, num+1)]
-
-    for temp in y_coords.values():
-        plt.plot(x_coord, temp.values())
-
-
-def build_ls_matrix(u_knots, v_knots, terrain):
-    """
-    Try to create matrix for SVD decomposition
-    :param u_knots:
-    :param v_knots:
-    :param terrain:
-    :return:
-    """
-    u_n_basf = len(u_knots) - 3
-    v_n_basf = len(v_knots) - 3
-    terrain_len = len(terrain)
-
-    mat_b = numpy.empty((terrain_len, u_n_basf * v_n_basf))
-    interval = numpy.empty((terrain_len, 2))
-
-    for idx in range(0, terrain_len):
-        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0])
-        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1])
-        mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
-        interval[idx][0] = i_idx
-        interval[idx][1] = j_idx
-
-    return mat_b, interval
 
 
 def spline_base_vec(knot_vec, t_param):
@@ -150,7 +99,8 @@ def spline_base_vec(knot_vec, t_param):
 
     idx = find_index(knot_vec, t_param)
 
-    basis_values = numpy.zeros(len(knot_vec) - 3)
+    # Create sparse matrix
+    basis_values = scipy.sparse.dok_matrix((1, len(knot_vec) - 3))
 
     tk1 = knot_vec[idx+1]
     tk2 = knot_vec[idx+2]
@@ -171,18 +121,18 @@ def spline_base_vec(knot_vec, t_param):
 
     # 1 & 2
     if d31_d32 == 0.0:
-        basis_values[idx] = 0.0
-        basis_values[idx+1] = 0.0
+        basis_values[0, idx] = 0.0
+        basis_values[0, idx+1] = 0.0
     else:
-        basis_values[idx] = (d3t*d3t) / d31_d32
-        basis_values[idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        basis_values[0, idx] = (d3t*d3t) / d31_d32
+        basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
     # 2 & 3
     if d42_d32 == 0.0:
-        basis_values[idx+1] = 0.0
-        basis_values[idx+2] = 0.0
+        basis_values[0, idx+1] = 0.0
+        basis_values[0, idx+2] = 0.0
     else:
-        basis_values[idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        basis_values[idx+2] = (dt2*dt2) / d42_d32
+        basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        basis_values[0, idx+2] = (dt2*dt2) / d42_d32
 
     return basis_values, idx
 
@@ -193,10 +143,6 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
     :param knots: numpy array of knots
     :return:
     """
-    # knots = numpy.array((0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0))
-    # t_param = 1.0
-    # basis_values, idx = spline_base_vec(knots, t_param)
-    # print(knots, t_param, idx, basis_values)
 
     num = 100
     n_basf = len(knots) - 3
@@ -205,7 +151,7 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         temp = {}
         for i in range(0, num+1):
             t_param = min(knots) + max(knots) * i / float(num)
-            temp[i] = spline_base_vec(knots, t_param)[0]
+            temp[i] = spline_base_vec(knots, t_param)[0].toarray()[0]
         y_coords[k] = temp
 
     diff_x = (max(knots) - min(knots)) / num
@@ -214,6 +160,34 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
     for temp in y_coords.values():
         plt.plot(x_coord, temp.values())
     plt.show()
+
+
+def build_ls_matrix(u_knots, v_knots, terrain):
+    """
+    Try to create matrix for SVD decomposition
+    :param u_knots:
+    :param v_knots:
+    :param terrain:
+    :return:
+    """
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+    terrain_len = len(terrain)
+
+    # mat_b = numpy.empty((terrain_len, u_n_basf * v_n_basf))
+    mat_b = scipy.sparse.dok_matrix((terrain_len, u_n_basf * v_n_basf))
+    interval = numpy.empty((terrain_len, 2))
+
+    for idx in range(0, terrain_len):
+        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0])
+        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1])
+        # mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
+        mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok")
+        mat_b[idx, :] = mat.transpose()
+        interval[idx][0] = i_idx
+        interval[idx][1] = j_idx
+
+    return mat_b, interval
 
 
 def spline_base(knot_vec, basis_fnc_idx, t_param):
@@ -307,32 +281,6 @@ def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
     return x_coord, y_coord, z_coord
 
 
-def test_spline_base(knots):
-    """
-    This function tries to test  spline_base function
-    :param knots NumPy array of knots
-    :return: None
-    """
-    # knots = numpy.array((0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0))
-    # knots = numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))
-    num = 100
-    n_basf = len(knots) - 3
-    y_coords = {}
-    for k in range(0, n_basf):
-        temp = {}
-        for i in range(0, num+1):
-            t_param = min(knots) + max(knots) * i / float(num)
-            temp[i] = spline_base(knots, k, t_param)
-        y_coords[k] = temp
-
-    diff_x = (max(knots) - min(knots)) / num
-    x_coord = [min(knots) + diff_x*i for i in range(0, num+1)]
-
-    for temp in y_coords.values():
-        plt.plot(x_coord, temp.values())
-    plt.show()
-
-
 def gen_knots(num=10):
     """
     This function generates vector of knots according number
@@ -419,7 +367,7 @@ def approx_svd(terrain_data, u_knots, v_knots):
 
     mat_g = numpy.matrix(terrain_data[:, 2])
 
-    mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b, full_matrices=False, compute_uv=True)
+    mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b.todense(), full_matrices=False, compute_uv=True)
 
     mat_s = numpy.diagflat(mat_s)
 

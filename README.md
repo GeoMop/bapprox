@@ -26,3 +26,4 @@ How to Test
 -----------
 
     PYTHONPATH=$PWD/src py.test tests
+

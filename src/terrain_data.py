@@ -77,6 +77,10 @@ class TerrainData(object):
         except KeyError:
             self.conf['terrain']['approximation']['solver'] = 'scipy'
         try:
+            self.conf['terrain']['approximation']['sparse']
+        except KeyError:
+            self.conf['terrain']['approximation']['sparse'] = True
+        try:
             self.conf['terrain']['approximation']['u_knots_num']
         except KeyError:
             self.conf['terrain']['approximation']['u_knots_num'] = 15
@@ -240,6 +244,7 @@ class TerrainData(object):
         u_knots_num = self.conf['terrain']['approximation']['u_knots_num']
         v_knots_num = self.conf['terrain']['approximation']['v_knots_num']
         comp_diffs = self.conf['terrain']['approximation']['differences']
+        sparse = self.conf['terrain']['approximation']['sparse']
 
         if solver == 'scipy':
             from scipy import interpolate
@@ -271,7 +276,7 @@ class TerrainData(object):
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
             # Do own B-Spline approximation o terrain data
-            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(solver, terrain, u_knots, v_knots)
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(solver, terrain, u_knots, v_knots, sparse)
             if comp_diffs is True:
                 # Compute difference between original terrain data and B-Spline surface
                 diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)

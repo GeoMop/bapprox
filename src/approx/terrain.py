@@ -16,6 +16,8 @@ KVN_CACHE = {}
 SB_CACHE = {}
 
 
+# TODO: this function contains small bug. It return 0.0 instead 1.0 for t_param = 1.0
+# This function is not used for production, but it is here only for testing.
 def basis_factory(degree):
     """
     Returns a basis_function for the given degree
@@ -73,11 +75,12 @@ def basis_factory(degree):
     return basis_function
 
 
-def spline_base_vec(knot_vec, t_param):
+def spline_base_vec(knot_vec, t_param, sparse):
     """
     This function compute normalized blending function aka base function of B-Spline curve or surface.
     :param knot_vec:
     :param t_param:
+    :param sparse:
     :return:
     """
 
@@ -100,7 +103,10 @@ def spline_base_vec(knot_vec, t_param):
     idx = find_index(knot_vec, t_param)
 
     # Create sparse matrix
-    basis_values = scipy.sparse.dok_matrix((1, len(knot_vec) - 3))
+    if sparse is True:
+        basis_values = scipy.sparse.dok_matrix((1, len(knot_vec) - 3))
+    else:
+        basis_values = numpy.zeros(len(knot_vec) - 3)
 
     tk1 = knot_vec[idx+1]
     tk2 = knot_vec[idx+2]
@@ -120,19 +126,34 @@ def spline_base_vec(knot_vec, t_param):
     d42_d32 = d42 * d32
 
     # 1 & 2
-    if d31_d32 == 0.0:
-        basis_values[0, idx] = 0.0
-        basis_values[0, idx+1] = 0.0
+    if sparse is True:
+        if d31_d32 == 0.0:
+            basis_values[0, idx] = 0.0
+            basis_values[0, idx+1] = 0.0
+        else:
+            basis_values[0, idx] = (d3t*d3t) / d31_d32
+            basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        # 2 & 3
+        if d42_d32 == 0.0:
+            basis_values[0, idx+1] = 0.0
+            basis_values[0, idx+2] = 0.0
+        else:
+            basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+            basis_values[0, idx+2] = (dt2*dt2) / d42_d32
     else:
-        basis_values[0, idx] = (d3t*d3t) / d31_d32
-        basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-    # 2 & 3
-    if d42_d32 == 0.0:
-        basis_values[0, idx+1] = 0.0
-        basis_values[0, idx+2] = 0.0
-    else:
-        basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        basis_values[0, idx+2] = (dt2*dt2) / d42_d32
+        if d31_d32 == 0.0:
+            basis_values[idx] = 0.0
+            basis_values[idx + 1] = 0.0
+        else:
+            basis_values[idx] = (d3t * d3t) / d31_d32
+            basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        # 2 & 3
+        if d42_d32 == 0.0:
+            basis_values[idx + 1] = 0.0
+            basis_values[idx + 2] = 0.0
+        else:
+            basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+            basis_values[idx + 2] = (dt2 * dt2) / d42_d32
 
     return basis_values, idx
 
@@ -162,7 +183,7 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
     plt.show()
 
 
-def build_ls_matrix(u_knots, v_knots, terrain):
+def build_ls_matrix(u_knots, v_knots, terrain, sparse):
     """
     Try to create matrix for SVD decomposition
     :param u_knots:
@@ -174,16 +195,21 @@ def build_ls_matrix(u_knots, v_knots, terrain):
     v_n_basf = len(v_knots) - 3
     terrain_len = len(terrain)
 
-    # mat_b = numpy.empty((terrain_len, u_n_basf * v_n_basf))
-    mat_b = scipy.sparse.dok_matrix((terrain_len, u_n_basf * v_n_basf))
-    interval = numpy.empty((terrain_len, 2))
+    if sparse is True:
+        mat_b = scipy.sparse.dok_matrix((terrain_len, u_n_basf * v_n_basf))
+        interval = numpy.empty((terrain_len, 2))
+    else:
+        mat_b = numpy.empty((terrain_len, u_n_basf * v_n_basf))
+        interval = numpy.empty((terrain_len, 2))
 
     for idx in range(0, terrain_len):
-        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0])
-        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1])
-        # mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
-        mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok")
-        mat_b[idx, :] = mat.transpose()
+        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0], sparse)
+        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1], sparse)
+        if sparse is True:
+            mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok")
+            mat_b[idx, :] = mat.transpose()
+        else:
+            mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
         interval[idx][0] = i_idx
         interval[idx][1] = j_idx
 
@@ -232,6 +258,9 @@ def spline_base(knot_vec, basis_fnc_idx, t_param):
     return value
 
 
+KNOT_VEC_CACHE = {}
+
+
 def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
     """
     Compute z coordinate of B-Surface u and v degree is 2
@@ -251,10 +280,18 @@ def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
     # _u_knot: (0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0)
     _u_knots = []
     _v_knots = []
-    for idx, mult in enumerate(u_mults):
-        _u_knots.extend([u_knots[idx]] * mult)
-    for idx, mult in enumerate(v_mults):
-        _v_knots.extend([v_knots[idx]] * mult)
+    try:
+        _u_knots = KNOT_VEC_CACHE[(u_knots, u_mults)]
+    except KeyError:
+        for idx, mult in enumerate(u_mults):
+            _u_knots.extend([u_knots[idx]] * mult)
+        KNOT_VEC_CACHE[(u_knots, u_mults)] = _u_knots
+    try:
+        _v_knots = KNOT_VEC_CACHE[(v_knots, v_mults)]
+    except KeyError:
+        for idx, mult in enumerate(v_mults):
+            _v_knots.extend([v_knots[idx]] * mult)
+        KNOT_VEC_CACHE[(v_knots, v_mults)] = _v_knots
 
     u_n_basf = len(_u_knots) - 3
     v_n_basf = len(_v_knots) - 3
@@ -352,52 +389,73 @@ def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
     return points
 
 
-def approx_svd(terrain_data, u_knots, v_knots):
+def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     using SVD decomposition
     :param terrain_data: matrix of 3D terrain data
     :param u_knots: array of u knots
     :param v_knots: array of v knots
+    :param sparse: use sparse matrices or not
+    :param filter_thresh: threshold used in filtering S matrix
     :return: B-Spline patch
     """
-    mat_b, interval = build_ls_matrix(u_knots, v_knots, terrain_data)
 
-    # mat_w = numpy.diagflat(terrain_data[:, 3])
+    print('Assembling B matrix ...')
+    start_time = time.time()
+    mat_b, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    mat_g = numpy.matrix(terrain_data[:, 2])
+    if sparse is True:
+        mat_g = scipy.sparse.dok_matrix(terrain_data[:, 2])
+    else:
+        mat_g = numpy.matrix(terrain_data[:, 2])
 
-    mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b.todense(), full_matrices=False, compute_uv=True)
+    print('Computing SVD ...')
+    start_time = time.time()
+    if sparse is True:
+        mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b.todense(), full_matrices=False, compute_uv=True)
+    else:
+        mat_u, mat_s, mat_v = numpy.linalg.svd(mat_b, full_matrices=False, compute_uv=True)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    mat_s = numpy.diagflat(mat_s)
+    print('Creating Si matrix ...')
+    start_time = time.time()
 
-    mat_crop_s = numpy.matrix(data=mat_s, copy=True)
+    # Make computed matrices sparse to save memory
+    if sparse is True:
+        mat_u = scipy.sparse.dok_matrix(mat_u)
+        mat_v = scipy.sparse.dok_matrix(mat_v)
 
-    rows, cols = mat_crop_s.shape
+    # Make compatible with Matlab code
+    mat_v = mat_v.transpose()
 
-    # Iterate over matrix and crop too big values to zero
-    for i in range(0, rows):
-        for j in range(0, cols):
-            if mat_crop_s[i, j] < 0.001:
-                mat_crop_s[i, j] = 0.0
+    # Filter too small values and invert other values
+    for key, value in enumerate(mat_s):
+        if value < filter_thresh:
+            mat_s[key] = 0.0
+        else:
+            mat_s[key] = 1.0 / value
 
-    mat_sdi = numpy.matrix(data=mat_s, copy=True)
+    # rank = numpy.linalg.matrix_rank(mat_s)
 
-    # Inverse values in matrix
-    for i in range(0, rows):
-        for j in range(0, cols):
-            if mat_s[i, j] != 0.0:
-                mat_sdi[i, j] = 1.0 / mat_s[i, j]
+    size = max(mat_s.shape)
 
-    mat_s_rows, mat_s_cols = mat_s.shape
+    if sparse is True:
+        mat_si = scipy.sparse.spdiags(mat_s, 0, size, size)
+    else:
+        mat_si = numpy.diagflat(mat_s)
 
-    rank = numpy.linalg.matrix_rank(mat_s)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    mat_si = numpy.matrix(numpy.zeros((mat_s_rows, mat_s_cols)))
-
-    mat_si[:rank+1, :rank+1] = mat_sdi
-
-    z_mat = mat_v.transpose() * mat_si.transpose() * mat_u.transpose() * mat_g
+    print('Computing Z matrix ...')
+    start_time = time.time()
+    z_mat = mat_v * (mat_si.transpose() * (mat_u.transpose() * mat_g))
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
@@ -428,7 +486,7 @@ def approx_svd(terrain_data, u_knots, v_knots):
     v_mults = [1] * (v_n_basf - 1)
     v_mults[0] = v_mults[-1] = 3
 
-    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg
+    return poles, tuple(u_knots), tuple(v_knots), tuple(u_mults), tuple(v_mults), u_deg, v_deg
 
 
 def approx_qr(terrain_data, u_knots, v_knots):
@@ -507,21 +565,22 @@ def approx_qr(terrain_data, u_knots, v_knots):
     v_mults = [1] * (v_n_basf - 1)
     v_mults[0] = v_mults[-1] = 3
 
-    return poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg
+    return poles, tuple(u_knots), tuple(v_knots), tuple(u_mults), tuple(v_mults), u_deg, v_deg
 
 
-def approx(method, terrain_data, u_knots, v_knots):
+def approx(method, terrain_data, u_knots, v_knots, sparse=False):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     :param method: method used for approximation
     :param terrain_data: matrix of 3D terrain data
     :param u_knots: array of u knots
     :param v_knots: array of v knots
+    :param sparse: sparse matrices will be used for computing
     :return: B-Spline patch
     """
     if method == 'qr':
         return approx_qr(terrain_data, u_knots, v_knots)
     elif method == 'svd':
-        return approx_svd(terrain_data, u_knots, v_knots)
+        return approx_svd(terrain_data, u_knots, v_knots, sparse)
     else:
         raise TypeError("Wrong argument method: {0}".format(method))

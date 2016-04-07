@@ -3,8 +3,11 @@ terrain:
   #input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
   approximation:
-    # posible values of solver: scipy, qr, svd
+    # Posible values of solver: scipy, qr, svd
     solver: 'svd'
+    # Use sparse matrices for computing (for some reason it is very, very slow)
+    # and SVD method supports it now.
+    sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases).
@@ -26,5 +29,7 @@ rivers:
 output: 'terrain.brep'
 
 display:
+  # Original surface visualized with crosses
   terrain: true
+  # Approximated surface using B-Spline patch(es)
   surface: true

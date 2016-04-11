@@ -5,3 +5,4 @@ src/convert/*.pyc
 src/approx/*.pyc
 .idea
 terrain.brep
+differences.csv

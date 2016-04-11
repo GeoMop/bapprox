@@ -92,6 +92,10 @@ class TerrainData(object):
             self.conf['terrain']['approximation']['differences']
         except KeyError:
             self.conf['terrain']['approximation']['differences'] = False
+        try:
+            self.conf['terrain']['approximation']['output_differences']
+        except KeyError:
+            self.conf['terrain']['approximation']['output_differences'] = None
         # Output
         try:
             self.conf['output']
@@ -245,6 +249,7 @@ class TerrainData(object):
         v_knots_num = self.conf['terrain']['approximation']['v_knots_num']
         comp_diffs = self.conf['terrain']['approximation']['differences']
         sparse = self.conf['terrain']['approximation']['sparse']
+        output_diff = self.conf['terrain']['approximation']['output_differences']
 
         if solver == 'scipy':
             from scipy import interpolate
@@ -290,6 +295,17 @@ class TerrainData(object):
                     poles[i][j] = (x_coord, y_coord, poles[i][j][2])
             raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
+
+        if comp_diffs is True and output_diff is not None:
+            self.output_diffs_to_csv_file(output_diff)
+
+    def output_diffs_to_csv_file(self, output_diff_file):
+        """
+        :return None
+        """
+        with open(output_diff_file, 'w') as csv_diff_file:
+            for diff_val in self.tW:
+                csv_diff_file.write("{0}\n".format(str(diff_val)))
 
     def approximate_2d_borders(self):
         """
@@ -372,6 +388,35 @@ class TerrainData(object):
             for bspline in self.bspline_surfaces.values():
                 display.DisplayShape(bspline.GetHandle(), update=True)
 
+        # # Debug display of points at surface
+        # import approx.terrain
+        # raw = self.raw.values()[0]
+        # # (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+        # poles = raw[0]
+        # u_knots = raw[1]
+        # v_knots = raw[2]
+        # u_mults = raw[3]
+        # v_mults = raw[4]
+        # # Draw points of terrain
+        # a_presentation, group = self.create_ogl_group(display)
+        # black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
+        # asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
+        # pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
+        #                                                   False,  # hasVColors
+        #                                                   )
+        # import numpy
+        # terrain = numpy.matrix(self.points)
+        # # Default RGB color of point (white)
+        # for point in terrain:
+        #     u_param = point[0, 0]
+        #     v_param = point[0, 1]
+        #     x_coord, y_coord, z_coord = approx.terrain.spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)
+        #     pnt = OCC.gp.gp_Pnt(x_coord, y_coord, z_coord)
+        #     pnt_array.AddVertex(pnt)
+        # group.SetPrimitivesAspect(asp.GetHandle())
+        # group.AddPrimitiveArray(pnt_array.GetHandle())
+        # a_presentation.Display()
+
         if display_terr is True:
             # Draw points of terrain
             a_presentation, group = self.create_ogl_group(display)
@@ -380,17 +425,16 @@ class TerrainData(object):
 
             if diffs is True:
                 pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
-                                                           True,  # hasVColors
-                                                           )
+                                                                  True,  # hasVColors
+                                                                  )
             else:
                 pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
-                                                           False,  # hasVColors
-                                                           )
-
+                                                                  False,  # hasVColors
+                                                                  )
             if diffs is True:
                 max_diff = max(self.tW)
                 print('Max difference {0}'.format(max_diff))
-            idx = 1
+                idx = 1
             # Default RGB color of point (white)
             for point in self.terrain_data:
                 pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
@@ -403,7 +447,7 @@ class TerrainData(object):
                         diff = 0.0
                     rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)
                     pnt_array.SetVertexColor(idx, rgb[0], rgb[1], rgb[2])
-                idx += 1
+                    idx += 1
 
             group.SetPrimitivesAspect(asp.GetHandle())
             group.AddPrimitiveArray(pnt_array.GetHandle())

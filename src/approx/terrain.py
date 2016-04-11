@@ -263,7 +263,7 @@ KNOT_VEC_CACHE = {}
 
 def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
     """
-    Compute z coordinate of B-Surface u and v degree is 2
+    Compute coordinate of one point at B-Surface (u and v degree is 2)
     :param poles: matrix of "poles"
     :param u_param: X coordinate in range <0, 1>
     :param v_param: Y coordinate in range <0, 1>
@@ -350,7 +350,7 @@ def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
     idx = 0
     for point in terrain_data:
         # X and Y coordinates should be equal to u and v parameters at
-        # approximated points
+        # approximated points, but it is not true :-(
         u_param = point[0, 0]
         v_param = point[0, 1]
         z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)[2]
@@ -533,7 +533,9 @@ def approx_qr(terrain_data, u_knots, v_knots):
 
     print('Computing Z matrix ...')
     start_time = time.time()
-    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose())[0] * g_z_mat
+    # Following formulae can't work, because r_mat is not square matrix
+    # z_mat = scipy.linalg.solve_triangular(r_mat, q_mat.transpose() * g_z_mat)
+    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_z_mat)[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 

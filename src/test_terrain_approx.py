@@ -124,9 +124,9 @@ def test_scipy_approx():
 
 
 if __name__ == '__main__':
-    test_svd_approx(sparse=True)
+    # test_svd_approx(sparse=True)
     # approx.terrain.test_spline_base_vec()
-    # test_qr_approx()
+    test_qr_approx()
     # test_scipy_approx()
     # u_knots = approx.terrain.gen_knots(9)
     # approx.terrain.test_spline_base_vec(u_knots)

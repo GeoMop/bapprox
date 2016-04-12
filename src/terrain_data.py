@@ -38,6 +38,7 @@ class TerrainData(object):
         self.tY = None  # Terrain X,Y,Z cache for numpy API
         self.tZ = None  #
         self.tW = None  # Visualization purpose
+        self.max_diff = 0.0
         self.min_x = -sys.maxsize
         self.max_x = sys.maxsize
         self.min_y = -sys.maxsize
@@ -296,8 +297,11 @@ class TerrainData(object):
             raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
-        if comp_diffs is True and output_diff is not None:
-            self.output_diffs_to_csv_file(output_diff)
+        if comp_diffs is True:
+            self.max_diff = max(self.tW)
+            print('Max difference {0}'.format(self.max_diff))
+            if output_diff is not None:
+                self.output_diffs_to_csv_file(output_diff)
 
     def output_diffs_to_csv_file(self, output_diff_file):
         """
@@ -432,8 +436,6 @@ class TerrainData(object):
                                                                   False,  # hasVColors
                                                                   )
             if diffs is True:
-                max_diff = max(self.tW)
-                print('Max difference {0}'.format(max_diff))
                 idx = 1
             # Default RGB color of point (white)
             for point in self.terrain_data:
@@ -441,8 +443,8 @@ class TerrainData(object):
                 pnt_array.AddVertex(pnt)
                 if diffs is True:
                     # create the point, with a diff color
-                    if max_diff > 0.0:
-                        diff = self.tW[idx - 1] / max_diff
+                    if self.max_diff > 0.0:
+                        diff = self.tW[idx - 1] / self.max_diff
                     else:
                         diff = 0.0
                     rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)

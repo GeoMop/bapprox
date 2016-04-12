@@ -308,8 +308,10 @@ class TerrainData(object):
         :return None
         """
         with open(output_diff_file, 'w') as csv_diff_file:
-            for diff_val in self.tW:
-                csv_diff_file.write("{0}\n".format(str(diff_val)))
+            for idx, diff_val in enumerate(self.tW):
+                x_coord, y_coord, z_coord = self.terrain_data[idx]
+                # print(x_coord, y_coord, z_coord, diff_val)
+                csv_diff_file.write("{0} {1} {2} {3}\n".format(str(x_coord), str(y_coord), str(z_coord), str(diff_val)))
 
     def approximate_2d_borders(self):
         """

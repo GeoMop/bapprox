@@ -83,13 +83,13 @@ def test_svd_approx(sparse=False):
     display_results(occ_bspline, points)
 
 
-def test_qr_approx():
+def test_qr_approx(sparse=False):
     """
     Test our approximation of B-Spline surface
     :return: None
     """
     # test_spline_base()
-    poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = test_terrain_approx('qr')
+    poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = test_terrain_approx('qr', sparse)
     occ_bspline = convert.bspline.raw_to_occ(poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
     points = approx.terrain.gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=50, v_num=50)
     display_results(occ_bspline, points)
@@ -125,8 +125,8 @@ def test_scipy_approx():
 
 if __name__ == '__main__':
     # test_svd_approx(sparse=True)
-    # approx.terrain.test_spline_base_vec()
-    test_qr_approx()
+    # approx.terrain.test_spline_base_vec(sparse=True)
+    test_qr_approx(sparse=True)
     # test_scipy_approx()
     # u_knots = approx.terrain.gen_knots(9)
     # approx.terrain.test_spline_base_vec(u_knots)

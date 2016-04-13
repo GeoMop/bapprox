@@ -4,15 +4,15 @@ terrain:
   #input: './data/baze_100m_export.csv'
   approximation:
     # Posible values of solver: scipy, qr, svd
-    solver: 'svd'
-    # Use sparse matrices for computing (for some reason it is very, very slow)
-    # and SVD method supports it now.
-    sparse: false
+    solver: 'qr'
+    # Use sparse matrices for computing (for some reason it is very, very slow now).
+    # It works for qr and svd method (not scipy).
+    sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases).
-    u_knots_num: 15
-    v_knots_num: 15
+    u_knots_num: 20
+    v_knots_num: 20
     # Optional: compute differences between B-Spline surface and terrain
     differences: true
     # Optional: CSV file for output of diferences

@@ -138,7 +138,7 @@ def spline_base_vec(knot_vec, t_param, sparse=False):
     return basis_values, idx
 
 
-def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0)), dense=False):
+def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0)), sparse=False):
     """
     Test optimized version of spline base function
     :param knots: numpy array of knots
@@ -153,10 +153,10 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         temp = {}
         for i in range(0, num+1):
             t_param = min(knots) + max(knots) * i / float(num)
-            if dense is True:
-                temp[i] = spline_base_vec(knots, t_param, dense)[0].toarray()[0]
+            if sparse is True:
+                temp[i] = spline_base_vec(knots, t_param, sparse)[0].toarray()[0]
             else:
-                temp[i] = spline_base_vec(knots, t_param, dense)[0]
+                temp[i] = spline_base_vec(knots, t_param, sparse)[0]
         y_coords[k] = temp
 
     diff_x = (max(knots) - min(knots)) / num
@@ -374,6 +374,45 @@ def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
     return points
 
 
+def z_mat_to_bspline(u_knots, v_knots, z_mat):
+    """
+    This function create B-Spline patch in raw format
+    :param u_knots:
+    :param v_knots:
+    :param z_mat:
+    """
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+
+    # Create list of poles from z_mat
+    poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
+
+    for i in range(0, u_n_basf):
+        for j in range(0, v_n_basf):
+            x_coord = float(i) / (u_n_basf - 1)
+            y_coord = float(j) / (v_n_basf - 1)
+            z_coord = z_mat[i * v_n_basf + j, 0]
+            poles[i][j] = (x_coord, y_coord, z_coord)
+
+    # Create degrees
+    u_deg = 2
+    v_deg = 2
+
+    # Convert knot vectors
+    u_knots = list(set(u_knots))
+    u_knots.sort()
+    v_knots = list(set(v_knots))
+    v_knots.sort()
+
+    # Create vectors of multiplicities
+    u_mults = [1] * (u_n_basf - 1)
+    u_mults[0] = u_mults[-1] = 3
+    v_mults = [1] * (v_n_basf - 1)
+    v_mults[0] = v_mults[-1] = 3
+
+    return poles, tuple(u_knots), tuple(v_knots), tuple(u_mults), tuple(v_mults), u_deg, v_deg
+
+
 def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001):
     """
     This function tries to approximate terrain data with B-Spline surface patches
@@ -442,45 +481,17 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    u_n_basf = len(u_knots) - 3
-    v_n_basf = len(v_knots) - 3
-
-    # Create list of poles from z_mat
-    poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
-
-    for i in range(0, u_n_basf):
-        for j in range(0, v_n_basf):
-            x_coord = float(i)/(u_n_basf - 1)
-            y_coord = float(j)/(v_n_basf - 1)
-            z_coord = z_mat[i * v_n_basf + j, 0]
-            poles[i][j] = (x_coord, y_coord, z_coord)
-
-    # Create degrees
-    u_deg = 2
-    v_deg = 2
-
-    # Convert knot vectors
-    u_knots = list(set(u_knots))
-    u_knots.sort()
-    v_knots = list(set(v_knots))
-    v_knots.sort()
-
-    # Create vectors of multiplicities
-    u_mults = [1] * (u_n_basf - 1)
-    u_mults[0] = u_mults[-1] = 3
-    v_mults = [1] * (v_n_basf - 1)
-    v_mults[0] = v_mults[-1] = 3
-
-    return poles, tuple(u_knots), tuple(v_knots), tuple(u_mults), tuple(v_mults), u_deg, v_deg
+    return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
 
-def approx_qr(terrain_data, u_knots, v_knots):
+def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     using QR decomposition
     :param terrain_data: matrix of 3D terrain data
     :param u_knots: array of u knots
     :param v_knots: array of v knots
+    :param sparse:
     :return: B-Spline patch
     """
     num_pnt = terrain_data.shape[0]
@@ -496,15 +507,7 @@ def approx_qr(terrain_data, u_knots, v_knots):
     # Own computation of approximation
     print('Creating B matrix ...')
     start_time = time.time()
-    eye_mat = numpy.eye(v_n_basf)
-    # eye_mat = scipy.sparse.eye(v_n_basf)
-    for j in range(0, num_pnt):
-        for k in range(0, u_n_basf):
-            uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j, 0])
-        for k in range(0, v_n_basf):
-            vf_mat[(0, k)] = spline_base(v_knots, k, terrain_data[j, 1])
-        b_mat[j] = numpy.kron(vf_mat, uf_mat)
-        # b_mat[j] = vf_mat * scipy.sparse.kron(eye_mat, uf_mat)
+    b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
@@ -512,47 +515,20 @@ def approx_qr(terrain_data, u_knots, v_knots):
 
     print('Computing QR ...')
     start_time = time.time()
-    q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
+    if sparse is True:
+        q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
+    else:
+        q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     print('Computing Z matrix ...')
     start_time = time.time()
-    # Following formulae can't work, because r_mat is not square matrix
-    # z_mat = scipy.linalg.solve_triangular(r_mat, q_mat.transpose() * g_z_mat)
     z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_z_mat)[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    # Create list of poles from z_mat
-    poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
-
-    for i in range(0, u_n_basf):
-        for j in range(0, v_n_basf):
-            x_coord = float(i)/(u_n_basf - 1)
-            y_coord = float(j)/(v_n_basf - 1)
-            z_coord = z_mat[i * v_n_basf + j, 0]
-            # For some reason we have to switch x and y coordinates.
-            # Shame on me, but I don't know why :-/
-            poles[i][j] = (y_coord, x_coord, z_coord)
-
-    # Create degrees
-    u_deg = 2
-    v_deg = 2
-
-    # Convert knot vectors
-    u_knots = list(set(u_knots))
-    u_knots.sort()
-    v_knots = list(set(v_knots))
-    v_knots.sort()
-
-    # Create vectors of multiplicities
-    u_mults = [1] * (u_n_basf - 1)
-    u_mults[0] = u_mults[-1] = 3
-    v_mults = [1] * (v_n_basf - 1)
-    v_mults[0] = v_mults[-1] = 3
-
-    return poles, tuple(u_knots), tuple(v_knots), tuple(u_mults), tuple(v_mults), u_deg, v_deg
+    return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
 
 def approx(method, terrain_data, u_knots, v_knots, sparse=False):
@@ -566,7 +542,7 @@ def approx(method, terrain_data, u_knots, v_knots, sparse=False):
     :return: B-Spline patch
     """
     if method == 'qr':
-        return approx_qr(terrain_data, u_knots, v_knots)
+        return approx_qr(terrain_data, u_knots, v_knots, sparse)
     elif method == 'svd':
         return approx_svd(terrain_data, u_knots, v_knots, sparse)
     else:

@@ -14,6 +14,10 @@ def main(yaml_conf_filename):
     Try to read data from all files
     :param yaml_conf_filename: dictionary with configuration
     """
+
+    if yaml_conf_filename is None:
+        return
+
     terrain = terrain_data.TerrainData(yaml_conf_filename)
 
     terrain.load_conf_from_yaml()
@@ -40,11 +44,11 @@ def parse_arguments():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--filename", type=str,
+    parser.add_argument("-f", "--filename", type=str, required=True,
                         help="Yaml conf file", default=None)
     args = parser.parse_args()
-    main(args.filename)
+    return args.filename
 
 if __name__ == '__main__':
     # Parse argument
-    parse_arguments()
+    main(parse_arguments())

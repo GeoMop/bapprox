@@ -75,9 +75,10 @@ def basis_factory(degree):
     return basis_function
 
 
-def spline_base_vec(knot_vec, t_param, sparse):
+def spline_base_vec(knot_vec, t_param, sparse=False):
     """
     This function compute normalized blending function aka base function of B-Spline curve or surface.
+    Used by SVD method.
     :param knot_vec:
     :param t_param:
     :param sparse:
@@ -125,43 +126,23 @@ def spline_base_vec(knot_vec, t_param, sparse):
     d31_d32 = d31 * d32
     d42_d32 = d42 * d32
 
-    # 1 & 2
     if sparse is True:
-        if d31_d32 == 0.0:
-            basis_values[0, idx] = 0.0
-            basis_values[0, idx+1] = 0.0
-        else:
-            basis_values[0, idx] = (d3t*d3t) / d31_d32
-            basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        # 2 & 3
-        if d42_d32 == 0.0:
-            basis_values[0, idx+1] = 0.0
-            basis_values[0, idx+2] = 0.0
-        else:
-            basis_values[0, idx+1] = ((dt1*d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-            basis_values[0, idx+2] = (dt2*dt2) / d42_d32
+        basis_values[0, idx] = (d3t * d3t) / d31_d32
+        basis_values[0, idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        basis_values[0, idx + 2] = (dt2 * dt2) / d42_d32
     else:
-        if d31_d32 == 0.0:
-            basis_values[idx] = 0.0
-            basis_values[idx + 1] = 0.0
-        else:
-            basis_values[idx] = (d3t * d3t) / d31_d32
-            basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        # 2 & 3
-        if d42_d32 == 0.0:
-            basis_values[idx + 1] = 0.0
-            basis_values[idx + 2] = 0.0
-        else:
-            basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-            basis_values[idx + 2] = (dt2 * dt2) / d42_d32
+        basis_values[idx] = (d3t * d3t) / d31_d32
+        basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+        basis_values[idx + 2] = (dt2 * dt2) / d42_d32
 
     return basis_values, idx
 
 
-def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0))):
+def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0)), dense=False):
     """
     Test optimized version of spline base function
     :param knots: numpy array of knots
+    :param dense: is dense matrix used
     :return:
     """
 
@@ -172,7 +153,10 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         temp = {}
         for i in range(0, num+1):
             t_param = min(knots) + max(knots) * i / float(num)
-            temp[i] = spline_base_vec(knots, t_param)[0].toarray()[0]
+            if dense is True:
+                temp[i] = spline_base_vec(knots, t_param, dense)[0].toarray()[0]
+            else:
+                temp[i] = spline_base_vec(knots, t_param, dense)[0]
         y_coords[k] = temp
 
     diff_x = (max(knots) - min(knots)) / num
@@ -183,12 +167,13 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
     plt.show()
 
 
-def build_ls_matrix(u_knots, v_knots, terrain, sparse):
+def build_ls_matrix(u_knots, v_knots, terrain, sparse=False):
     """
     Try to create matrix for SVD decomposition
     :param u_knots:
     :param v_knots:
     :param terrain:
+    :param sparse:
     :return:
     """
     u_n_basf = len(u_knots) - 3
@@ -219,7 +204,7 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
 def spline_base(knot_vec, basis_fnc_idx, t_param):
     """
     This function compute normalized blending function aka base function of B-Spline curve or surface.
-    This function implement some optimization.
+    This function implement some optimization. Used by QR method.
     :param knot_vec: knot vector
     :param basis_fnc_idx: index of basis function
     :param t_param: parameter t in interval <0, 1>
@@ -518,7 +503,7 @@ def approx_qr(terrain_data, u_knots, v_knots):
             uf_mat[(0, k)] = spline_base(u_knots, k, terrain_data[j, 0])
         for k in range(0, v_n_basf):
             vf_mat[(0, k)] = spline_base(v_knots, k, terrain_data[j, 1])
-        b_mat[j] = vf_mat * numpy.kron(eye_mat, uf_mat)
+        b_mat[j] = numpy.kron(vf_mat, uf_mat)
         # b_mat[j] = vf_mat * scipy.sparse.kron(eye_mat, uf_mat)
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))

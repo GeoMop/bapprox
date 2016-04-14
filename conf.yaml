@@ -3,17 +3,25 @@ terrain:
   #input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
   approximation:
-    # Posible values of solver: scipy, qr, svd
-    solver: 'qr'
-    # Use sparse matrices for computing (for some reason it is very, very slow now).
-    # It works for qr and svd method (not scipy).
-    sparse: true
+    solver:
+      # Posible values of solver method: scipy, qr, svd
+      method: 'svd'
+      # Threshold of filtering can be used only for svd method. It can reduce oscilations,
+      # but it can also make result surface worse. To filter something value has to be
+      # between min and max value of Matrix S (look at debug output).
+      # Other methods (scipy, qr) ignores this value.
+      threshold: 0.001
+      # Use sparse matrices for computing (for some reason it is very, very slow now).
+      # It works for qr and svd method (not scipy).
+      sparse: false
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
-    # of knots is estimated automatically (does not work corectlly in all cases).
+    # of knots is estimated automatically (does not work corectlly in all cases
+    # and it can be very slow).
     u_knots_num: 20
     v_knots_num: 20
-    # Optional: compute differences between B-Spline surface and terrain
+    # Optional: compute differences between B-Spline surface and terrain.
+    # Diferences between can be visualized and/or be written to the file.
     differences: true
     # Optional: CSV file for output of diferences
     output_differences: './differences.csv'

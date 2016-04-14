@@ -445,6 +445,8 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
+    print('Min(Matrix S): {0}, Max(Matrix S): {1}'.format(min(mat_s), max(mat_s)))
+
     print('Creating Si matrix ...')
     start_time = time.time()
 
@@ -461,7 +463,7 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
         if value < filter_thresh:
             mat_s[key] = 0.0
         else:
-            mat_s[key] = 1.0 / value
+            mat_s[key] = 1 / value
 
     # rank = numpy.linalg.matrix_rank(mat_s)
 
@@ -494,15 +496,6 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     :param sparse:
     :return: B-Spline patch
     """
-    num_pnt = terrain_data.shape[0]
-
-    u_n_basf = len(u_knots) - 3
-    v_n_basf = len(v_knots) - 3
-
-    b_mat = numpy.zeros((num_pnt, u_n_basf * v_n_basf))
-
-    uf_mat = numpy.matrix((0.0,) * u_n_basf)
-    vf_mat = numpy.matrix((0.0,) * v_n_basf)
 
     # Own computation of approximation
     print('Creating B matrix ...')
@@ -511,7 +504,7 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    g_z_mat = terrain_data[:, 2]
+    g_mat = terrain_data[:, 2]
 
     print('Computing QR ...')
     start_time = time.time()
@@ -524,14 +517,14 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
 
     print('Computing Z matrix ...')
     start_time = time.time()
-    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_z_mat)[0]
+    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
 
-def approx(method, terrain_data, u_knots, v_knots, sparse=False):
+def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     :param method: method used for approximation
@@ -539,11 +532,12 @@ def approx(method, terrain_data, u_knots, v_knots, sparse=False):
     :param u_knots: array of u knots
     :param v_knots: array of v knots
     :param sparse: sparse matrices will be used for computing
+    :param conf: dictionary of other configuration specific for approximation method
     :return: B-Spline patch
     """
     if method == 'qr':
         return approx_qr(terrain_data, u_knots, v_knots, sparse)
     elif method == 'svd':
-        return approx_svd(terrain_data, u_knots, v_knots, sparse)
+        return approx_svd(terrain_data, u_knots, v_knots, sparse, conf['threshold'])
     else:
         raise TypeError("Wrong argument method: {0}".format(method))

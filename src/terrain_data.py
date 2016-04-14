@@ -76,11 +76,15 @@ class TerrainData(object):
         try:
             self.conf['terrain']['approximation']['solver']
         except KeyError:
-            self.conf['terrain']['approximation']['solver'] = 'scipy'
+            self.conf['terrain']['approximation']['solver'] = {}
         try:
-            self.conf['terrain']['approximation']['sparse']
+            self.conf['terrain']['approximation']['solver']['method']
         except KeyError:
-            self.conf['terrain']['approximation']['sparse'] = True
+            self.conf['terrain']['approximation']['solver']['method'] = 'scipy'
+        try:
+            self.conf['terrain']['approximation']['solver']['sparse']
+        except KeyError:
+            self.conf['terrain']['approximation']['solver']['sparse'] = True
         try:
             self.conf['terrain']['approximation']['u_knots_num']
         except KeyError:
@@ -245,14 +249,15 @@ class TerrainData(object):
         """
         Try to approximate terrain with bspline surface
         """
-        solver = self.conf['terrain']['approximation']['solver']
+        solver_method = self.conf['terrain']['approximation']['solver']['method']
+        sparse = self.conf['terrain']['approximation']['solver']['sparse']
+        threshold = self.conf['terrain']['approximation']['solver']['threshold']
         u_knots_num = self.conf['terrain']['approximation']['u_knots_num']
         v_knots_num = self.conf['terrain']['approximation']['v_knots_num']
         comp_diffs = self.conf['terrain']['approximation']['differences']
-        sparse = self.conf['terrain']['approximation']['sparse']
         output_diff = self.conf['terrain']['approximation']['output_differences']
 
-        if solver == 'scipy':
+        if solver_method == 'scipy':
             from scipy import interpolate
             print('SciPy approximation ...')
             start_time = time.time()
@@ -275,14 +280,18 @@ class TerrainData(object):
                 self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
                 end_time = time.time()
                 print('Computed in {0} seconds.'.format(end_time - start_time))
-        elif solver == 'qr' or solver == 'svd':
+        elif solver_method == 'qr' or solver_method == 'svd':
             import approx.terrain
             import numpy
             u_knots = approx.terrain.gen_knots(u_knots_num)
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
             # Do own B-Spline approximation o terrain data
-            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = approx.terrain.approx(solver, terrain, u_knots, v_knots, sparse)
+            if solver_method == 'svd':
+                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
+            else:
+                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)
+            poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = raw
             if comp_diffs is True:
                 # Compute difference between original terrain data and B-Spline surface
                 diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)

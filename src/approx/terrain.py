@@ -306,7 +306,7 @@ def build_reg_matrix(u_knots, v_knots, sparse=False):
         up = us + uil*Qpoints(k)
         u_point_val[:,n] = spline_base_vec(u_knots,up)
         ud_point_val[:,n] = spline_base_vec_diff(u_knots,up)
-        n = n+1
+        n = n + 1
 
 
 
@@ -679,7 +679,7 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
 
     return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
-def approx_chol(terrain_data, u_knots, v_knots, sparse=False):
+def approx_chol(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     using QR decomposition
@@ -697,7 +697,6 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse=False):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-
     print('Creating A matrix ...')
     start_time = time.time()
     a_mat = build_reg_matrix(u_knots, v_knots, sparse)
@@ -711,30 +710,27 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse=False):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    #bb_norm = 
-    #a_norm =
-    
-    r = 0.1;
+    bb_norm = numpy.linalg.norm(bb_mat)
+    a_norm = numpy.linalg.norm(a_mat)
+
+    r = filter_thresh; 
     c_mat = bb_mat + r * bb_norm / a_norm * a_mat;
     
-
     g_mat = terrain_data[:, 2]
+    b_vec = b_mat.transpose * g_mat
+    
 
-    print('Computing QR ...')
+    print('Computing Z matrix ...')
     start_time = time.time()
     #if sparse is True:
         #q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
     #else:
     q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
+    z_mat = dsolve.spsolve(c_mat, b_vec, use_umfpack=True)
        
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    print('Computing Z matrix ...')
-    start_time = time.time()
-    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
-    end_time = time.time()
-    print('Computed in {0} seconds.'.format(end_time - start_time))
 
     return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
@@ -756,6 +752,6 @@ def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
     elif method == 'svd':
         return approx_svd(terrain_data, u_knots, v_knots, sparse, conf['threshold'])
     elif method == 'chol':
-        return approx_chol(terrain_data, u_knots, v_knots, sparse)
+        return approx_chol(terrain_data, u_knots, v_knots, sparse,conf['threshold'])
     else:
         raise TypeError("Wrong argument method: {0}".format(method))

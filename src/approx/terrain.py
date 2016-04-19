@@ -73,6 +73,71 @@ def basis_factory(degree):
     basis_function.lower = None if degree == 0 else basis_factory(degree - 1)
     basis_function.degree = degree
     return basis_function
+  
+  
+def spline_base_vec_diff(knot_vec, t_param, sparse=False):
+    """
+    This function compute derivative of the normalized blending function aka base function of B-Spline curve or surface.
+    Used by SVD method.
+    :param knot_vec:
+    :param t_param:
+    :param sparse:
+    :return:
+    """
+
+    def find_index(_knot_vec, _t_param):
+        """
+        This function try to find index for given t_param in knot_vec that
+        is covered by all (4) base functions.
+        :param _knot_vec:
+        :param _t_param:
+        :return:
+        """
+        knot_vec_len = len(_knot_vec) - 5
+        estim_idx = int(2 + _t_param * knot_vec_len)
+        if _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
+            # Usually only one step
+            while _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
+                estim_idx -= 1
+        return estim_idx - 2
+
+    idx = find_index(knot_vec, t_param)
+
+    # Create sparse matrix
+    if sparse is True:
+        basis_values = scipy.sparse.dok_matrix((1, len(knot_vec) - 3))
+    else:
+        basis_values = numpy.zeros(len(knot_vec) - 3)
+
+    tk1 = knot_vec[idx+1]
+    tk2 = knot_vec[idx+2]
+    tk3 = knot_vec[idx+3]
+    tk4 = knot_vec[idx+4]
+
+    d31 = tk3 - tk1
+    d32 = tk3 - tk2
+    d42 = tk4 - tk2
+
+    dt1 = t_param - tk1
+    dt2 = t_param - tk2
+    d3t = tk3 - t_param
+    d4t = tk4 - t_param
+
+    d31_d32 = d31 * d32
+    d42_d32 = d42 * d32
+
+    if sparse is True:
+        basis_values[0, idx] = -2*d3t / d31_d32
+        basis_values[0, idx + 1] = (d3t - dt1)/d31_d32 + (d4t-dt2)/d42_d32
+        basis_values[0, idx + 2] = 2 * dt2 / d42_d32
+    else:
+        basis_values[idx] = -2*d3t / d31_d32
+        basis_values[idx + 1] = (d3t - dt1)/d31_d32 + (d4t-dt2)/d42_d32
+        basis_values[idx + 2] = 2 * dt2 / d42_d32
+
+    return basis_values, idx
+  
+
 
 
 def spline_base_vec(knot_vec, t_param, sparse=False):
@@ -191,14 +256,105 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse=False):
         u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0], sparse)
         v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1], sparse)
         if sparse is True:
-            mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok")
+            mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok") #possible problem
             mat_b[idx, :] = mat.transpose()
         else:
-            mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
+            mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose()) #possible problem
         interval[idx][0] = i_idx
         interval[idx][1] = j_idx
 
     return mat_b, interval
+
+
+def build_reg_matrix(u_knots, v_knots, sparse=False):
+    """
+    Regularization matrix for minimizing variantion of the terain surface
+    :param u_knots:
+    :param v_knots:
+    :param terrain:
+    :param sparse:
+    :return:
+    """
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+    u_n_inter =  length(u_knots)-5
+    v_n_inter =  length(v_knots)-5
+    
+    Qpoints = [0, (1/2 - 1/math.sqrt(20)), (1/2 + 1/math.sqrt(20)), 1]
+    weights = [1/6, 5/6, 5/6, 1/6]
+    n_points = length(Qpoints)
+    print(n_points)
+    
+# u values
+
+
+
+    if sparse is True:
+      basis_values = scipy.sparse.dok_matrix((1, len(u_knots) - 3))
+        #u_point_val = spalloc(u_n_basf,u_n_inter*n_points,u_n_inter*n_points*3);
+	#ud_point_val = spalloc(u_n_basf,u_n_inter*n_points,u_n_inter*n_points*3);
+    else:
+      u_point_val = numpy.empty((u_n_basf,u_n_inter*n_points))
+      ud_point_val = numpy.empty((u_n_basf,u_n_inter*n_points))
+        
+
+    n = 0
+    for i in range(0,u_n_inter-1):
+      us = u_knots(i+2) 
+      uil = u_knots(i+3)- u_knots(i+2)
+      for k in range(0, n_points - 1):
+        up = us + uil*Qpoints(k)
+        u_point_val[:,n] = spline_base_vec(u_knots,up)
+        ud_point_val[:,n] = spline_base_vec_diff(u_knots,up)
+        n = n+1
+
+
+
+# v values
+
+
+    if sparse is True:
+      basis_values = scipy.sparse.dok_matrix((1, len(v_knots) - 3))
+    #v_point_val =  spalloc(v_n_basf,v_n_inter*n_points,v_n_inter*n_points*3);
+	#vd_point_val = spalloc(v_n_basf,v_n_inter*n_points,v_n_inter*n_points*3);;
+    else:
+      v_point_val = numpy.empty((v_n_basf,v_n_inter*n_points))
+      vd_point_val = numpy.empty((v_n_basf,v_n_inter*n_points))
+
+
+
+# dense
+    n = 0
+    for i in range (0,v_n_inter-1):
+      vs = v_knots(i+2)
+      vil = v_knots(i+3)- v_knots(i+2)
+      for k in range(0, n_points-1):
+        vp = vs + vil*Qpoints(k)
+        v_point_val[:,n] = spline_base_vec(v_knots,vp)
+        vd_point_val[:,n] = spline_base_vec_diff(v_knots,vp)
+        n = n+1
+
+
+# Matrix construction
+
+    for i in  range(0, v_n_inter-1):
+      for k in range(0, n_points-1):
+        v_point = v_point_val[:, i * n_points + k];
+        vd_point =vd_point_val[:, i * n_points + k];
+        for l in range(0, u_n_inter-1):
+            for m in range(0, n_points-1):
+                u_point = v_point_val[:, l * n_points + m];
+                ud_point = vd_point_val[:, l *n_points + m];
+                vd = numpy.kron(vd_point,u_point);
+                ud = numpy.kron(v_point,ud_point);
+                A = A +  weights(m)*weights(k)*(numpy.kron(ud,ud.transpose()) +numpy.kron(vd,vd.transpose()));
+ 
+
+
+  #A = A* Jd;
+
+
+    return A
 
 
 def spline_base(knot_vec, basis_fnc_idx, t_param):
@@ -523,6 +679,66 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
 
     return z_mat_to_bspline(u_knots, v_knots, z_mat)
 
+def approx_chol(terrain_data, u_knots, v_knots, sparse=False):
+    """
+    This function tries to approximate terrain data with B-Spline surface patches
+    using QR decomposition
+    :param terrain_data: matrix of 3D terrain data
+    :param u_knots: array of u knots
+    :param v_knots: array of v knots
+    :param sparse:
+    :return: B-Spline patch
+    """
+
+    # Own computation of approximation
+    print('Creating B matrix ...')
+    start_time = time.time()
+    b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+
+    print('Creating A matrix ...')
+    start_time = time.time()
+    a_mat = build_reg_matrix(u_knots, v_knots, sparse)
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    print('Computing B^T B matrix ...')
+    start_time = time.time()
+    bb_mat = b_mat.transpose * b_mat;
+    
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    #bb_norm = 
+    #a_norm =
+    
+    r = 0.1;
+    c_mat = bb_mat + r * bb_norm / a_norm * a_mat;
+    
+
+    g_mat = terrain_data[:, 2]
+
+    print('Computing QR ...')
+    start_time = time.time()
+    #if sparse is True:
+        #q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
+    #else:
+    q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
+       
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    print('Computing Z matrix ...')
+    start_time = time.time()
+    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    return z_mat_to_bspline(u_knots, v_knots, z_mat)
+
+
 
 def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
     """
@@ -539,5 +755,7 @@ def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
         return approx_qr(terrain_data, u_knots, v_knots, sparse)
     elif method == 'svd':
         return approx_svd(terrain_data, u_knots, v_knots, sparse, conf['threshold'])
+    elif method == 'chol':
+        return approx_chol(terrain_data, u_knots, v_knots, sparse)
     else:
         raise TypeError("Wrong argument method: {0}".format(method))

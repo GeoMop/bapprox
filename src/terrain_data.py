@@ -280,14 +280,14 @@ class TerrainData(object):
                 self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
                 end_time = time.time()
                 print('Computed in {0} seconds.'.format(end_time - start_time))
-        elif solver_method == 'qr' or solver_method == 'svd':
+        elif solver_method == 'qr' or solver_method == 'svd' or solver_method == 'chol':
             import approx.terrain
             import numpy
             u_knots = approx.terrain.gen_knots(u_knots_num)
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
             # Do own B-Spline approximation o terrain data
-            if solver_method == 'svd':
+            if solver_method == 'svd' or solver_method == 'chol':
                 raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
             else:
                 raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)

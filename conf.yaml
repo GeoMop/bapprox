@@ -1,7 +1,16 @@
 terrain:
   input: './data/teren.txt'
+  # Other possible input files included in ./data directory
   #input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
+
+  # Optional: When this value is set or is not zero value, then approximated B-Spline
+  # surface will be extruded allong z-axis and volume object will be saved to output
+  # BREP file. When extrude_diff is not set or it is zero, then only surface will be
+  # exported to BREP output file.
+  extrude_diff: 0.0
+
+  # Options of terrain approximation
   approximation:
     solver:
       # Posible values of solver method: scipy, qr, svd

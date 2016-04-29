@@ -56,19 +56,26 @@ class TerrainData(object):
         self.area_borders_2d = {}
         self.area_borders_3d = {}
         self.bspline_surfaces = {}
+        self.shell = None
 
     def load_conf_from_yaml(self):
         """
         Load configuration form yaml file
         """
+        # Yaml file is loaded to the dictionary in two lines of code :-)
         with open(self.yaml_file_name, 'r') as yaml_file:
             self.conf = yaml.load(yaml_file)
+
         # When some values are not set, then set default values
         # Terrain
         try:
             self.conf['terrain']
         except KeyError:
             self.conf['terrain'] = {}
+        try:
+            self.conf['terrain']['extrude_diff']
+        except KeyError:
+            self.conf['terrain']['extrude_diff'] = 0.0
         try:
             self.conf['terrain']['approximation']
         except KeyError:
@@ -398,39 +405,13 @@ class TerrainData(object):
         display_surf = self.conf['display']['surface']
         display_terr = self.conf['display']['terrain']
 
-        if display_surf is True:
-            # Draw all bspline surfaces
-            for bspline in self.bspline_surfaces.values():
-                display.DisplayShape(bspline.GetHandle(), update=True)
-
-        # # Debug display of points at surface
-        # import approx.terrain
-        # raw = self.raw.values()[0]
-        # # (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
-        # poles = raw[0]
-        # u_knots = raw[1]
-        # v_knots = raw[2]
-        # u_mults = raw[3]
-        # v_mults = raw[4]
-        # # Draw points of terrain
-        # a_presentation, group = self.create_ogl_group(display)
-        # black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
-        # asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
-        # pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(self.point_count,
-        #                                                   False,  # hasVColors
-        #                                                   )
-        # import numpy
-        # terrain = numpy.matrix(self.points)
-        # # Default RGB color of point (white)
-        # for point in terrain:
-        #     u_param = point[0, 0]
-        #     v_param = point[0, 1]
-        #     x_coord, y_coord, z_coord = approx.terrain.spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)
-        #     pnt = OCC.gp.gp_Pnt(x_coord, y_coord, z_coord)
-        #     pnt_array.AddVertex(pnt)
-        # group.SetPrimitivesAspect(asp.GetHandle())
-        # group.AddPrimitiveArray(pnt_array.GetHandle())
-        # a_presentation.Display()
+        if self.shell is None:
+            if display_surf is True:
+                # Draw all bspline surfaces
+                for bspline in self.bspline_surfaces.values():
+                    display.DisplayShape(bspline.GetHandle(), update=True)
+        else:
+            display.DisplayShape(self.shell, update=True)
 
         if display_terr is True:
             # Draw points of terrain
@@ -468,10 +449,162 @@ class TerrainData(object):
 
         start_display()
 
+    @staticmethod
+    def cap_extrude(bspl_surf, z_diff):
+        """
+        Cap extrusion
+        :param bspl_surf:
+        :param z_diff:
+        :return OCC B_Spline
+        """
+        # Non-periodic surface
+        uperiod = False
+        vperiod = False
+
+        udeg = bspl_surf.UDegree()
+        vdeg = bspl_surf.VDegree()
+
+        nb_u_poles = bspl_surf.NbUPoles()
+        nb_v_poles = bspl_surf.NbVPoles()
+
+        poles = OCC.TColgp.TColgp_Array2OfPnt(1, nb_u_poles, 1, nb_v_poles)
+        bspl_surf.Poles(poles)
+        new_poles = OCC.TColgp.TColgp_Array2OfPnt(1, nb_u_poles, 1, nb_v_poles)
+
+        nb_u_knots = nb_u_mults = bspl_surf.NbUKnots()
+        nb_v_knots = nb_v_mults = bspl_surf.NbVKnots()
+        uknots = OCC.TColStd.TColStd_Array1OfReal(1, nb_u_knots)
+        vknots = OCC.TColStd.TColStd_Array1OfReal(1, nb_v_knots)
+        umults = OCC.TColStd.TColStd_Array1OfInteger(1, nb_u_mults)
+        vmults = OCC.TColStd.TColStd_Array1OfInteger(1, nb_v_mults)
+        bspl_surf.UKnots(uknots)
+        bspl_surf.VKnots(vknots)
+        bspl_surf.VMultiplicities(umults)
+        bspl_surf.VMultiplicities(vmults)
+
+        # Set Z coordinate in poles
+        for u_idx in range(1, nb_u_poles + 1):
+            for v_idx in range(1, nb_v_poles + 1):
+                _u_idx = nb_u_poles + 1 - u_idx
+                _v_idx = nb_v_poles + 1 - v_idx
+                point = poles.Value(_u_idx, _v_idx)
+                new_poles.SetValue(u_idx, v_idx, OCC.gp.gp_Pnt(point.X(), point.Y(), point.Z() + z_diff))
+
+        return OCC.Geom.Geom_BSplineSurface(new_poles, uknots, vknots, umults, vmults, udeg, vdeg, uperiod, vperiod)
+
+    @staticmethod
+    def extrude_edge(upole, uknots, umult, udeg, z_diff):
+        """
+        Extrude one edge.
+        :param upole:
+        :param uknots:
+        :param umult:
+        :param udeg:
+        :param z_diff:
+        :return OCC B-Spline
+        """
+
+        # Non-periodic surface
+        uperiod = False
+        vperiod = False
+
+        vdeg = 1
+
+        # Create 2D array of poles (control points)
+        poles = OCC.TColgp.TColgp_Array2OfPnt(1, upole.Length(), 1, 2)
+        for index in range(1, upole.Length() + 1):
+            point = upole.Value(index)
+            poles.SetValue(index, 1, point)
+            poles.SetValue(index, 2, OCC.gp.gp_Pnt(point.X(), point.Y(), point.Z() + z_diff))
+
+        # Length of uknots and umult has to be same
+        # Same rule is for vknots and vmult
+        vknot_len = vmult_len = 2
+
+        # Knots for V direction
+        vknots = OCC.TColStd.TColStd_Array1OfReal(1, vknot_len)
+
+        # Main curves begins and ends at first and last points
+        vknots.SetValue(1, 0.0)
+        vknots.SetValue(2, 1.0)
+
+        # Multiplicities for U and V direction
+        vmult = OCC.TColStd.TColStd_Array1OfInteger(1, vmult_len)
+
+        # First and last multiplicities are set to udeg + 1 (vdeg respectively),
+        # because we want main curves to start and finish on the first and
+        # the last points
+        vmult.SetValue(1, vdeg + 1)
+        vmult.SetValue(2, vdeg + 1)
+
+        # Try to create surface
+        return OCC.Geom.Geom_BSplineSurface(poles, uknots, vknots, umult, vmult, udeg, vdeg, uperiod, vperiod)
+
+    def extrude_surface(self, bspl_surf, z_diff=-100):
+        """
+        This method extrude OCC B-Spline surface and it returns list of B-Spline surfaces. These surfaces can be
+        assembled into the volume object.
+        :param bspl_surf:
+        :param z_diff:
+        :return: list of B-Spline surfaces
+        """
+
+        surfaces = []
+
+        nb_u_poles = bspl_surf.NbUPoles()
+        nb_v_poles = bspl_surf.NbVPoles()
+
+        poles = OCC.TColgp.TColgp_Array2OfPnt(1, nb_u_poles, 1, nb_v_poles)
+        bspl_surf.Poles(poles)
+
+        nb_u_knots = nb_u_mults = bspl_surf.NbUKnots()
+        uknots = OCC.TColStd.TColStd_Array1OfReal(1, nb_u_knots)
+        umults = OCC.TColStd.TColStd_Array1OfInteger(1, nb_u_mults)
+        bspl_surf.UKnots(uknots)
+        bspl_surf.UMultiplicities(umults)
+
+        # 1: Extrude one border edge
+        edge = OCC.TColgp.TColgp_Array1OfPnt(1, nb_u_poles)
+        for index in range(1, nb_u_poles + 1):
+            _index = nb_u_poles + 1 - index
+            edge.SetValue(index, poles.Value(1, _index))
+        extruded_surf = self.extrude_edge(edge, uknots, umults, bspl_surf.UDegree(), z_diff)
+        surfaces.append(extruded_surf)
+
+        # 2: Extrude one border edge
+        edge = OCC.TColgp.TColgp_Array1OfPnt(1, nb_u_poles)
+        for index in range(1, nb_u_poles + 1):
+            edge.SetValue(index, poles.Value(nb_v_poles, index))
+        extruded_surf = self.extrude_edge(edge, uknots, umults, bspl_surf.UDegree(), z_diff)
+        surfaces.append(extruded_surf)
+
+        # 3: Extrude one border edge
+        edge = OCC.TColgp.TColgp_Array1OfPnt(1, nb_v_poles)
+        for index in range(1, nb_v_poles + 1):
+            edge.SetValue(index, poles.Value(index, 1))
+        extruded_surf = self.extrude_edge(edge, uknots, umults, bspl_surf.UDegree(), z_diff)
+        surfaces.append(extruded_surf)
+
+        # 4: Extrude one border edge
+        edge = OCC.TColgp.TColgp_Array1OfPnt(1, nb_v_poles)
+        for index in range(1, nb_v_poles + 1):
+            _index = nb_v_poles + 1 - index
+            edge.SetValue(index, poles.Value(_index, nb_u_poles))
+        extruded_surf = self.extrude_edge(edge, uknots, umults, bspl_surf.UDegree(), z_diff)
+        surfaces.append(extruded_surf)
+
+        # Cap it
+        cap_surf = self.cap_extrude(bspl_surf, z_diff)
+        surfaces.append(cap_surf)
+
+        return surfaces
+
     def output_approx_data(self):
         """
         Try to output approximated data to BREP file format
         """
+
+        extrude_diff = self.conf['terrain']['extrude_diff']
 
         sewing = OCC.BRepBuilderAPI.BRepBuilderAPI_Sewing(0.01, True, True, True, False)
         sewing.SetFloatingEdgesMode(True)
@@ -497,25 +630,31 @@ class TerrainData(object):
             face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(occ_bspline.GetHandle(), error).Shape()
             sewing.Add(face)
 
-        sewing.Perform()
-        sewing_shape = sewing.SewedShape()
-
-        # shell = OCC.TopoDS.topods_Shell(sewing_shape)
-
-        # make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
-        # make_solid.Add(shell)
-
-        # solid = make_solid.Solid()
-
-        # builder.MakeSolid(solid)
-        # builder.Add(solid, shell)
-
-        # compound = TopoDS_Compound()
-
-        # builder = OCC.BRep.BRep_Builder()
-        # builder.MakeCompound(compound)
-        # builder.Add(compound, solid)
-
-        # OCC.BRepTools.breptools_Write(compound, self.conf['output'])
-
-        OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])
+        if extrude_diff != 0.0:
+            # TODO: this code works properly only in situation, when surface is approximated only with one B-Spline
+            surfaces = self.extrude_surface(occ_bspline, extrude_diff)
+            # Added extruded surfaces to the sewing
+            for surface in surfaces:
+                face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(surface.GetHandle(), error).Shape()
+                sewing.Add(face)
+            # Sew it all together
+            sewing.Perform()
+            sewing_shape = sewing.SewedShape()
+            # Create shell, solid and compound
+            self.shell = OCC.TopoDS.topods_Shell(sewing_shape)
+            make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
+            make_solid.Add(self.shell)
+            solid = make_solid.Solid()
+            builder = OCC.BRep.BRep_Builder()
+            builder.MakeSolid(solid)
+            builder.Add(solid, self.shell)
+            compound = OCC.TopoDS.TopoDS_Compound()
+            builder = OCC.BRep.BRep_Builder()
+            builder.MakeCompound(compound)
+            builder.Add(compound, solid)
+            # Write compound to the BREP file
+            OCC.BRepTools.breptools_Write(compound, self.conf['output'])
+        else:
+            sewing.Perform()
+            sewing_shape = sewing.SewedShape()
+            OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])

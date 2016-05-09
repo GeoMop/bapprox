@@ -8,7 +8,7 @@ terrain:
   # surface will be extruded allong z-axis and volume object will be saved to output
   # BREP file. When extrude_diff is not set or it is zero, then only surface will be
   # exported to BREP output file.
-  extrude_diff: 0.0
+  extrude_diff: -100.0
 
   # Options of terrain approximation
   approximation:
@@ -35,16 +35,18 @@ terrain:
     # Optional: CSV file for output of diferences
     output_differences: './differences.csv'
 
-# Optional
+# Optional: When this data file is set, then it will be used for croping volume
+# defined by surface and extrusion
 area:
   input: './data/vymezeni.txt'
-  approximate: false
+  # Other possible input files included in ./data directory
+  # input: './data/area.txt'
 
-# Optional
+# Optional: It is not used for anything ATM.
 rivers:
   input: './data/reky_body.txt'
-  approximate: false
 
+# Required: name of output file.
 output: 'terrain.brep'
 
 display:

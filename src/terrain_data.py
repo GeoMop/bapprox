@@ -12,11 +12,13 @@ import OCC.BRep
 import OCC.TopoDS
 import OCC.BRepBuilderAPI
 import OCC.BRepTools
+import OCC.BRepAlgoAPI
 import OCC.Prs3d
 import OCC.Quantity
 import OCC.Graphic3d
 import OCC.Aspect
 import OCC.gp
+import OCC.BRepLib
 
 import convert.bspline
 
@@ -43,6 +45,8 @@ class TerrainData(object):
         self.max_x = sys.maxsize
         self.min_y = -sys.maxsize
         self.max_y = sys.maxsize
+        self.min_z = -sys.maxsize
+        self.max_z = sys.maxsize
         self.size_x = 0
         self.size_y = 0
         self.diff_x = 0.0
@@ -55,8 +59,10 @@ class TerrainData(object):
         self.rivers_data_3d = {}
         self.area_borders_2d = {}
         self.area_borders_3d = {}
+        self.area_volumes = {}
         self.bspline_surfaces = {}
         self.shell = None
+        self.volume = None
 
     def load_conf_from_yaml(self):
         """
@@ -118,19 +124,11 @@ class TerrainData(object):
             self.conf['area']
         except KeyError:
             self.conf['area'] = {}
-        try:
-            self.conf['area']['approximate']
-        except KeyError:
-            self.conf['area']['approximate'] = False
         # Rivers
         try:
             self.conf['rivers']
         except KeyError:
             self.conf['rivers'] = {}
-        try:
-            self.conf['rivers']['approximate']
-        except KeyError:
-            self.conf['rivers']['approximate'] = False
         # Display results
         try:
             self.conf['display']
@@ -190,6 +188,8 @@ class TerrainData(object):
         self.max_x = max(self.tX)
         self.min_y = min(self.tY)
         self.max_y = max(self.tY)
+        self.min_z = min(self.tZ)
+        self.max_z = max(self.tZ)
         # Try to compute size of 2d array according repeated values
         if self.tX[0] == self.tX[1]:
             self.size_x = find_first_different(self.tX) + 1
@@ -326,7 +326,6 @@ class TerrainData(object):
         with open(output_diff_file, 'w') as csv_diff_file:
             for idx, diff_val in enumerate(self.tW):
                 x_coord, y_coord, z_coord = self.terrain_data[idx]
-                # print(x_coord, y_coord, z_coord, diff_val)
                 csv_diff_file.write("{0} {1} {2} {3}\n".format(str(x_coord), str(y_coord), str(z_coord), str(diff_val)))
 
     def approximate_2d_borders(self):
@@ -351,6 +350,100 @@ class TerrainData(object):
                 z34_coord = (1.0 - kx_weight) * z3_coord + kx_weight * z4_coord
                 z_coord = (1.0 - ky_weight) * z12_coord + ky_weight * z34_coord
                 self.area_borders_3d[border_id].append((border_pnt[0], border_pnt[1], z_coord))
+
+    def create_volume_from_area(self, extrude_diff):
+        """
+        Try to create volume from shape defined in area data file
+        :param extrude_diff: distance between upper and lower cap of volume
+        :return:
+        """
+
+        for border_id, border_2d in self.area_borders_2d.items():
+
+            sewing = OCC.BRepBuilderAPI.BRepBuilderAPI_Sewing(0.01, True, True, True, False)
+            sewing.SetFloatingEdgesMode(True)
+
+            min_z = self.min_z + extrude_diff - 10.0
+            max_z = self.max_z + 10.0
+
+            cap1_wire = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeWire()
+            cap2_wire = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeWire()
+            prev_point = None
+            for pnt_id, border_pnt in enumerate(border_2d):
+                if prev_point is not None:
+                    point0 = prev_point
+                    point = point1 = OCC.gp.gp_Pnt(border_pnt[0], border_pnt[1], min_z)
+                    point2 = OCC.gp.gp_Pnt(border_pnt[0], border_pnt[1], max_z)
+                    point3 = OCC.gp.gp_Pnt(prev_point.X(), prev_point.Y(), max_z)
+                    # Create wire (border of one face)
+                    wire = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeWire()
+                    # 0
+                    edge0 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point0, point1)
+                    wire.Add(edge0.Edge())
+                    cap1_wire.Add(edge0.Edge())
+                    # 1
+                    edge1 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point1, point2)
+                    wire.Add(edge1.Edge())
+                    # 2
+                    edge2 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point2, point3)
+                    wire.Add(edge2.Edge())
+                    cap2_wire.Add(edge2.Edge())
+                    # 3
+                    edge3 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point3, point0)
+                    wire.Add(edge3.Edge())
+                    # Create face from the wire
+                    face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(wire.Wire())
+                    sewing.Add(face.Shape())
+                else:
+                    first_point = point = OCC.gp.gp_Pnt(border_pnt[0], border_pnt[1], min_z)
+                prev_point = point
+
+            # Connect last point with first point
+            point0 = OCC.gp.gp_Pnt(border_pnt[0], border_pnt[1], min_z)
+            point1 = first_point
+            point2 = OCC.gp.gp_Pnt(first_point.X(), first_point.Y(), max_z)
+            point3 = OCC.gp.gp_Pnt(border_pnt[0], border_pnt[1], max_z)
+            # Create wire (border of one face)
+            wire = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeWire()
+            # 0
+            edge0 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point0, point1)
+            wire.Add(edge0.Edge())
+            cap1_wire.Add(edge0.Edge())
+            # 1
+            edge1 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point1, point2)
+            wire.Add(edge1.Edge())
+            # 2
+            edge2 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point2, point3)
+            wire.Add(edge2.Edge())
+            cap2_wire.Add(edge2.Edge())
+            # 3
+            edge3 = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeEdge(point3, point0)
+            wire.Add(edge3.Edge())
+            # Create face from the wire
+            face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(wire.Wire())
+            sewing.Add(face.Shape())
+
+            cap1_face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(cap1_wire.Wire())
+            sewing.Add(cap1_face.Shape())
+            cap2_face = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeFace(cap2_wire.Wire())
+            sewing.Add(cap2_face.Shape())
+
+            # Sew it all together
+            sewing.Perform()
+            sewing_shape = sewing.SewedShape()
+            # Create shell, solid and compound
+            shell = OCC.TopoDS.topods_Shell(sewing_shape)
+            make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
+            make_solid.Add(shell)
+            solid = make_solid.Solid()
+            builder = OCC.BRep.BRep_Builder()
+            builder.MakeSolid(solid)
+            builder.Add(solid, shell)
+
+            # Try to fix orientation of solid volume
+            OCC.BRepLib.breplib().OrientClosedSolid(solid)
+
+            self.area_volumes[border_id] = solid
 
     def approximate_2d_rivers(self):
         """
@@ -405,13 +498,21 @@ class TerrainData(object):
         display_surf = self.conf['display']['surface']
         display_terr = self.conf['display']['terrain']
 
-        if self.shell is None:
-            if display_surf is True:
+        if display_surf is True:
+            if self.volume is not None:
+                # Display IDs of points at are border
+                self.approximate_2d_borders()
+                for point_id, point in enumerate(self.area_borders_3d[0]):
+                    occ_point = OCC.gp.gp_Pnt(point[0], point[1], point[2] + 10.0)
+                    display.DisplayMessage(occ_point, str(point_id));
+                # Display volume
+                display.DisplayShape(self.volume, update=True)
+            elif self.shell is not None:
+                display.DisplayShape(self.shell, update=True)
+            else:
                 # Draw all bspline surfaces
                 for bspline in self.bspline_surfaces.values():
                     display.DisplayShape(bspline.GetHandle(), update=True)
-        else:
-            display.DisplayShape(self.shell, update=True)
 
         if display_terr is True:
             # Draw points of terrain
@@ -645,13 +746,21 @@ class TerrainData(object):
             make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
             make_solid.Add(self.shell)
             solid = make_solid.Solid()
+            # Try to fix solid shape
+            OCC.BRepLib.breplib().OrientClosedSolid(solid)
             builder = OCC.BRep.BRep_Builder()
             builder.MakeSolid(solid)
             builder.Add(solid, self.shell)
             compound = OCC.TopoDS.TopoDS_Compound()
             builder = OCC.BRep.BRep_Builder()
             builder.MakeCompound(compound)
-            builder.Add(compound, solid)
+            if len(self.area_borders_2d) > 0:
+                self.create_volume_from_area(extrude_diff)
+                # TODO: This code works only for one area
+                self.volume = OCC.BRepAlgoAPI.BRepAlgoAPI_Common(self.area_volumes[0], solid).Shape()
+                builder.Add(compound, self.volume)
+            else:
+                builder.Add(compound, solid)
             # Write compound to the BREP file
             OCC.BRepTools.breptools_Write(compound, self.conf['output'])
         else:

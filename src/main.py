@@ -27,12 +27,6 @@ def main(yaml_conf_filename):
 
     terrain.approximate_terrain()
 
-    if terrain.conf['area']['approximate'] is True:
-        terrain.approximate_2d_borders()
-
-    if terrain.conf['rivers']['approximate'] is True:
-        terrain.approximate_2d_rivers()
-
     terrain.output_approx_data()
 
     if terrain.conf['display']['terrain'] is True or terrain.conf['display']['surface'] is True:

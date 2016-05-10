@@ -75,77 +75,14 @@ def basis_factory(degree):
     basis_function.lower = None if degree == 0 else basis_factory(degree - 1)
     basis_function.degree = degree
     return basis_function
-  
-  
-def spline_base_vec_diff(knot_vec, t_param, sparse=False):
-    """
-    This function compute derivative of the normalized blending function aka base function of B-Spline curve or surface.
-    Used by SVD method.
-    :param knot_vec:
-    :param t_param:
-    :param sparse:
-    :return:
-    """
 
-    def find_index(_knot_vec, _t_param):
-        """
-        This function try to find index for given t_param in knot_vec that
-        is covered by all (4) base functions.
-        :param _knot_vec:
-        :param _t_param:
-        :return:
-        """
-        knot_vec_len = len(_knot_vec) - 5
-        estim_idx = int(2 + _t_param * knot_vec_len)
-        if _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
-            # Usually only one step
-            while _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
-                estim_idx -= 1
-        return estim_idx - 2
 
-    idx = find_index(knot_vec, t_param)
-
-    # Create sparse matrix
-    if sparse is True:
-        basis_values = scipy.sparse.dok_matrix((1, len(knot_vec) - 3))
-    else:
-        basis_values = numpy.zeros(len(knot_vec) - 3)
-
-    tk1 = knot_vec[idx+1]
-    tk2 = knot_vec[idx+2]
-    tk3 = knot_vec[idx+3]
-    tk4 = knot_vec[idx+4]
-
-    d31 = tk3 - tk1
-    d32 = tk3 - tk2
-    d42 = tk4 - tk2
-
-    dt1 = t_param - tk1
-    dt2 = t_param - tk2
-    d3t = tk3 - t_param
-    d4t = tk4 - t_param
-
-    d31_d32 = d31 * d32
-    d42_d32 = d42 * d32
-
-    if sparse is True:
-        basis_values[0, idx] = -2*d3t / d31_d32
-        basis_values[0, idx + 1] = (d3t - dt1)/d31_d32 + (d4t-dt2)/d42_d32
-        basis_values[0, idx + 2] = 2 * dt2 / d42_d32
-    else:
-        basis_values[idx] = -2*d3t / d31_d32
-        basis_values[idx + 1] = (d3t - dt1)/d31_d32 + (d4t-dt2)/d42_d32
-        basis_values[idx + 2] = 2 * dt2 / d42_d32
-
-    return basis_values, idx
-  
-
-def spline_base_vec(knot_vec, t_param, sparse=False):
+def spline_base_vec(knot_vec, t_param, order, sparse=False):
     """
     This function compute normalized blending function aka base function of B-Spline curve or surface.
-    Used by SVD method.
     :param knot_vec:
     :param t_param:
+    :param order:
     :param sparse:
     :return:
     """
@@ -153,18 +90,66 @@ def spline_base_vec(knot_vec, t_param, sparse=False):
     def find_index(_knot_vec, _t_param):
         """
         This function try to find index for given t_param in knot_vec that
-        is covered by all (4) base functions.
+        is covered by all (3) base functions.
         :param _knot_vec:
         :param _t_param:
         :return:
         """
-        knot_vec_len = len(_knot_vec) - 5
-        estim_idx = int(2 + _t_param * knot_vec_len)
-        if _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
-            # Usually only one step
-            while _knot_vec[estim_idx-1] < _t_param <= _knot_vec[estim_idx]:
-                estim_idx -= 1
-        return estim_idx - 2
+
+        n = len(_knot_vec)
+        mn = 2 #3
+        mx = n - 3
+        est = min((2 + int(_t_param * (n - 5))), n-4)
+
+#        if _t_param < 0.0:
+#            idx = 0
+#            print('Problem')
+#            exit()
+#            return idx
+
+        if _t_param >= _knot_vec[est]:
+            mn = est
+        elif _t_param < _knot_vec[est]:
+            mx = est
+
+    #    print(est)
+    #    print(_knot_vec)
+    #    print(_t_param)
+    #    print(mn,mx)
+      #  if mn == mx:
+      #      idx = mn-3
+      #      return idx
+
+        s = int(max(math.ceil(math.log(mx - mn, 2)), 1))
+
+        my_list = range(s + 1)
+        for p in my_list:
+            if _t_param < _knot_vec[mn + 1]:
+                idx = mn - 2
+                break
+            elif _t_param > _knot_vec[mx - 1]:
+                idx = mx - 3
+                break
+
+            mid = mn + int((mx - mn) / 2)
+            if mid != mn:
+                if _t_param <= _knot_vec[mid]:
+                    mx = mid
+                elif _t_param > _knot_vec[mid]:
+                    mn = mid
+            else:
+                idx = mn - 2
+                break
+    #    print(idx)
+        return idx
+
+#        knot_vec_len = len(_knot_vec) - 5
+#        estim_idx = int(2 + _t_param * knot_vec_len)
+#        if _knot_vec[estim_idx-1] <= _t_param < _knot_vec[estim_idx]:
+#            # Usually only one step
+#            while _knot_vec[estim_idx-1] <= _t_param < _knot_vec[estim_idx]:
+#                estim_idx -= 1
+#        return estim_idx - 2
 
     idx = find_index(knot_vec, t_param)
 
@@ -174,10 +159,10 @@ def spline_base_vec(knot_vec, t_param, sparse=False):
     else:
         basis_values = numpy.zeros(len(knot_vec) - 3)
 
-    tk1 = knot_vec[idx+1]
-    tk2 = knot_vec[idx+2]
-    tk3 = knot_vec[idx+3]
-    tk4 = knot_vec[idx+4]
+    tk1 = knot_vec[idx + 1]
+    tk2 = knot_vec[idx + 2]
+    tk3 = knot_vec[idx + 3]
+    tk4 = knot_vec[idx + 4]
 
     d31 = tk3 - tk1
     d32 = tk3 - tk2
@@ -191,17 +176,29 @@ def spline_base_vec(knot_vec, t_param, sparse=False):
     d31_d32 = d31 * d32
     d42_d32 = d42 * d32
 
-    if sparse is True:
-        basis_values[0, idx] = (d3t * d3t) / d31_d32
-        basis_values[0, idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        basis_values[0, idx + 2] = (dt2 * dt2) / d42_d32
-    else:
-        basis_values[idx] = (d3t * d3t) / d31_d32
-        basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
-        basis_values[idx + 2] = (dt2 * dt2) / d42_d32
+    # basis function values
+    if order == 0:
+        if sparse is True:
+            basis_values[0, idx] = (d3t * d3t) / d31_d32
+            basis_values[0, idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+            basis_values[0, idx + 2] = (dt2 * dt2) / d42_d32
+        else:
+            basis_values[idx] = (d3t * d3t) / d31_d32
+            basis_values[idx + 1] = ((dt1 * d3t) / d31_d32) + ((dt2 * d4t) / d42_d32)
+            basis_values[idx + 2] = (dt2 * dt2) / d42_d32
+
+    # basis function derivatives
+    elif order == 1:
+        if sparse is True:
+            basis_values[0, idx] = -2 * d3t / d31_d32
+            basis_values[0, idx + 1] = (d3t - dt1) / d31_d32 + (d4t - dt2) / d42_d32
+            basis_values[0, idx + 2] = 2 * dt2 / d42_d32
+        else:
+            basis_values[idx] = -2*d3t / d31_d32
+            basis_values[idx + 1] = (d3t - dt1) / d31_d32 + (d4t - dt2) / d42_d32
+            basis_values[idx + 2] = 2 * dt2 / d42_d32
 
     return basis_values, idx
-
 
 def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0)), sparse=False):
     """
@@ -219,9 +216,9 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         for i in range(0, num+1):
             t_param = min(knots) + max(knots) * i / float(num)
             if sparse is True:
-                temp[i] = spline_base_vec(knots, t_param, sparse)[0].toarray()[0]
+                temp[i] = spline_base_vec(knots, t_param, 0, sparse)[0].toarray()[0]
             else:
-                temp[i] = spline_base_vec(knots, t_param, sparse)[0]
+                temp[i] = spline_base_vec(knots, t_param, 0, sparse)[0]
         y_coords[k] = temp
 
     diff_x = (max(knots) - min(knots)) / num
@@ -231,10 +228,10 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         plt.plot(x_coord, temp.values())
     plt.show()
 
-
 def build_ls_matrix(u_knots, v_knots, terrain, sparse=False):
     """
-    Try to create matrix for SVD decomposition
+    Construction of the matrix (B) of the system of linear algebraic
+    equations for control points of the 2th order B-spline surface
     :param u_knots:
     :param v_knots:
     :param terrain:
@@ -253,15 +250,18 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse=False):
         interval = numpy.empty((terrain_len, 2))
 
     for idx in range(0, terrain_len):
-        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0], sparse)
-        v_base_vec, j_idx = spline_base_vec(u_knots, terrain[idx, 1], sparse)
+        u_base_vec, i_idx = spline_base_vec(u_knots, terrain[idx, 0], 0, sparse)
+        # XXX u_knots -> v_knots
+        v_base_vec, j_idx = spline_base_vec(v_knots, terrain[idx, 1], 0, sparse)
         if sparse is True:
             # possible problem
             mat = scipy.sparse.kron(u_base_vec.transpose(), v_base_vec.transpose(), "dok")
+            #mat = scipy.sparse.kron(v_base_vec, u_base_vec, "dok")
             mat_b[idx, :] = mat.transpose()
         else:
             # possible problem
             mat_b[idx] = numpy.kron(u_base_vec.transpose(), v_base_vec.transpose())
+            #mat_b[idx] = numpy.kron(v_base_vec, u_base_vec)
         interval[idx][0] = i_idx
         interval[idx][1] = j_idx
 
@@ -270,67 +270,86 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse=False):
 
 def build_reg_matrix(u_knots, v_knots, sparse=False):
     """
-    Regularization matrix for minimizing variation of the terrain surface
+    Construction of the regularization matrix (A) to decrease variation of the terrain
+    B z = b  ---> (B^T B + A)z = B^T b
     :param u_knots:
     :param v_knots:
     :param sparse:
     :return:
     """
+    import sys
+
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
     u_n_inter = len(u_knots) - 5
     v_n_inter = len(v_knots) - 5
     
-    q_points = [0, (1/2 - 1/math.sqrt(20)), (1/2 + 1/math.sqrt(20)), 1]
-    weights = [1/6, 5/6, 5/6, 1/6]
+    q_points = [0, (0.5 - 1/math.sqrt(20)), (0.5 + 1/math.sqrt(20)), 1]
+    weights = [1.0/6, 5.0/6, 5.0/6, 1.0/6]
     n_points = len(q_points)
 
-    u_point_val = numpy.empty((u_n_basf, u_n_inter * n_points))
-    ud_point_val = numpy.empty((u_n_basf, u_n_inter * n_points))
+    u_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
+    ud_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
 
     n = 0
-    for i in range(0, u_n_inter-1):
+    for i in range(0, u_n_inter):
         us = u_knots[i+2]
         uil = u_knots[i+3] - u_knots[i+2]
-        print(n_points)
-        my_list = range(0, n_points-1)
-        print(my_list)
+        my_list = range(n_points)
         for j in my_list:
             up = us + uil * q_points[j]
-            u_point_val[:, n] = spline_base_vec(u_knots, up)
-            ud_point_val[:, n] = spline_base_vec_diff(u_knots, up)
+            u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, sparse)
+            u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, sparse)
+            u_point_val[:, n] = u_base_vec
+            ud_point_val[:, n] = u_base_vec_diff
             n += 1
 
-    v_point_val = numpy.empty((v_n_basf, v_n_inter * n_points))
-    vd_point_val = numpy.empty((v_n_basf, v_n_inter * n_points))
+#    for i in range(u_n_inter * n_points):
+#        print(u_point_val[:, i])
+
+
+    v_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
+    vd_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
 
     n = 0
-    for i in range(0, v_n_inter-1):
+    for i in range(v_n_inter):
         vs = v_knots[i+2]
         vil = v_knots[i+3] - v_knots[i+2]
-        print(n_points)
-        my_list = range(0, n_points-1)
-        for k in my_list:
-            vp = vs + vil * q_points[k]
-            v_point_val[:, n] = spline_base_vec(v_knots, vp)
-            vd_point_val[:, n] = spline_base_vec_diff(v_knots, vp)
+        my_list = range(n_points)
+        for j in my_list:
+            vp = vs + vil * q_points[j]
+            v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, sparse)
+            v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, sparse)
+            v_point_val[:, n] = v_base_vec
+            vd_point_val[:, n] = v_base_vec_diff
             n += 1
 
-    a_mat = 0.0
+#    for i in range(v_n_inter * n_points):
+#        print(v_point_val[:, i])
+
     # Matrix construction
-    for i in range(0, v_n_inter-1):
-        for k in range(0, n_points-1):
+    mat_a = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
+    for i in range(v_n_inter):
+        for k in range(n_points):
             v_point = v_point_val[:, i * n_points + k]
             vd_point = vd_point_val[:, i * n_points + k]
-            for l in range(0, u_n_inter-1):
-                for m in range(0, n_points-1):
-                    u_point = v_point_val[:, l * n_points + m]
-                    ud_point = vd_point_val[:, l * n_points + m]
+            for l in range(u_n_inter):
+                for m in range(n_points):
+                    u_point = u_point_val[:, l * n_points + m]
+                    #print(u_point_val)
+                    ud_point = ud_point_val[:, l * n_points + m]
                     vd = numpy.kron(vd_point, u_point)
+                    #print(vd)
                     ud = numpy.kron(v_point, ud_point)
-                    a_mat += weights[m] * weights[k] * (numpy.kron(ud, ud.transpose()) + numpy.kron(vd, vd.transpose()))
-
-    return a_mat
+                    #print(ud)
+                    mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
+                    #print(weights[m] , weights[k])
+                    #print(weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd)))
+                    #print(mat_a)
+                    #sys.stdin.readline()
+                    #print(numpy.outer(ud, ud))
+                    #print(vd,ud)
+    return mat_a
 
 
 def spline_base(knot_vec, basis_fnc_idx, t_param):
@@ -683,7 +702,7 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.00
 
     print('Computing B^T B matrix ...')
     start_time = time.time()
-    bb_mat = b_mat.transpose * b_mat
+    bb_mat = numpy.dot(b_mat.transpose(), b_mat)
     
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
@@ -693,13 +712,13 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.00
 
     r = filter_thresh
     c_mat = bb_mat + r * bb_norm / a_norm * a_mat
-    
+
     g_mat = terrain_data[:, 2]
     b_vec = b_mat.transpose() * g_mat
 
     print('Computing Z matrix ...')
     start_time = time.time()
-    z_mat = scipy.sparse.linalg.dsolve.spsolve(c_mat, b_vec, use_umfpack=True)
+    z_mat = scipy.linalg.solve(c_mat, b_vec)
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 

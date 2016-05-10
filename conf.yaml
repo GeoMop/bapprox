@@ -10,7 +10,7 @@ terrain:
       # but it can also make result surface worse. To filter something value has to be
       # between min and max value of Matrix S (look at debug output).
       # Other methods (scipy, qr) ignores this value.
-      threshold: 0.001
+      threshold: 0.01
       # Use sparse matrices for computing (for some reason it is very, very slow now).
       # It works for qr and svd method (not scipy).
       sparse: false

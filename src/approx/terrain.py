@@ -97,7 +97,7 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
         """
 
         n = len(_knot_vec)
-        mn = 2 #3
+        mn = 2
         mx = n - 3
         est = min((2 + int(_t_param * (n - 5))), n-4)
 
@@ -288,171 +288,57 @@ def build_reg_matrix(u_knots, v_knots, sparse=False):
     weights = [1.0/6, 5.0/6, 5.0/6, 1.0/6]
     n_points = len(q_points)
 
-    u_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
-    ud_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
+    if sparse is True:
+        print("p")
 
-    n = 0
-    for i in range(0, u_n_inter):
-        us = u_knots[i+2]
-        uil = u_knots[i+3] - u_knots[i+2]
-        my_list = range(n_points)
-        for j in my_list:
-            up = us + uil * q_points[j]
-            u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, sparse)
-            u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, sparse)
-            u_point_val[:, n] = u_base_vec
-            ud_point_val[:, n] = u_base_vec_diff
-            n += 1
+    else:
+        u_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
+        ud_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
 
-#    for i in range(u_n_inter * n_points):
-#        print(u_point_val[:, i])
+        n = 0
+        for i in range(0, u_n_inter):
+            us = u_knots[i+2]
+            uil = u_knots[i+3] - u_knots[i+2]
+            my_list = range(n_points)
+            for j in my_list:
+                up = us + uil * q_points[j]
+                u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, sparse)
+                u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, sparse)
+                u_point_val[:, n] = u_base_vec
+                ud_point_val[:, n] = u_base_vec_diff
+                n += 1
 
+        v_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
+        vd_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
 
-    v_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
-    vd_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
+        n = 0
+        for i in range(v_n_inter):
+            vs = v_knots[i+2]
+            vil = v_knots[i+3] - v_knots[i+2]
+            my_list = range(n_points)
+            for j in my_list:
+                vp = vs + vil * q_points[j]
+                v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, sparse)
+                v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, sparse)
+                v_point_val[:, n] = v_base_vec
+                vd_point_val[:, n] = v_base_vec_diff
+                n += 1
 
-    n = 0
-    for i in range(v_n_inter):
-        vs = v_knots[i+2]
-        vil = v_knots[i+3] - v_knots[i+2]
-        my_list = range(n_points)
-        for j in my_list:
-            vp = vs + vil * q_points[j]
-            v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, sparse)
-            v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, sparse)
-            v_point_val[:, n] = v_base_vec
-            vd_point_val[:, n] = v_base_vec_diff
-            n += 1
+        # Matrix construction
+        mat_a = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
+        for i in range(v_n_inter):
+            for k in range(n_points):
+                v_point = v_point_val[:, i * n_points + k]
+                vd_point = vd_point_val[:, i * n_points + k]
+                for l in range(u_n_inter):
+                    for m in range(n_points):
+                        u_point = u_point_val[:, l * n_points + m]
+                        ud_point = ud_point_val[:, l * n_points + m]
+                        vd = numpy.kron(vd_point, u_point)
+                        ud = numpy.kron(v_point, ud_point)
+                        mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
 
-#    for i in range(v_n_inter * n_points):
-#        print(v_point_val[:, i])
-
-    # Matrix construction
-    mat_a = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
-    for i in range(v_n_inter):
-        for k in range(n_points):
-            v_point = v_point_val[:, i * n_points + k]
-            vd_point = vd_point_val[:, i * n_points + k]
-            for l in range(u_n_inter):
-                for m in range(n_points):
-                    u_point = u_point_val[:, l * n_points + m]
-                    #print(u_point_val)
-                    ud_point = ud_point_val[:, l * n_points + m]
-                    vd = numpy.kron(vd_point, u_point)
-                    #print(vd)
-                    ud = numpy.kron(v_point, ud_point)
-                    #print(ud)
-                    mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
-                    #print(weights[m] , weights[k])
-                    #print(weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd)))
-                    #print(mat_a)
-                    #sys.stdin.readline()
-                    #print(numpy.outer(ud, ud))
-                    #print(vd,ud)
     return mat_a
-
-
-def spline_base(knot_vec, basis_fnc_idx, t_param):
-    """
-    This function compute normalized blending function aka base function of B-Spline curve or surface.
-    This function implement some optimization. Used by QR method.
-    :param knot_vec: knot vector
-    :param basis_fnc_idx: index of basis function
-    :param t_param: parameter t in interval <0, 1>
-    :return: value of basis function
-    """
-
-    # When basis function has zero value at given interval, then return 0
-    if t_param < knot_vec[basis_fnc_idx] or knot_vec[basis_fnc_idx+3] < t_param:
-        return 0.0
-
-    try:
-        value = SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)]
-    except KeyError:
-        try:
-            kvn = KVN_CACHE[tuple(knot_vec)]
-        except KeyError:
-            knot_vec_len = len(knot_vec)
-            kvn = [0] * knot_vec_len
-            i = 0
-            while i < knot_vec_len - 1:
-                if knot_vec[i] - knot_vec[i+1] != 0:
-                    kvn[i] = 1.0
-                i += 1
-            KVN_CACHE[tuple(knot_vec)] = kvn
-        tks = [knot_vec[basis_fnc_idx + k] for k in range(0, 4)]
-        value = 0.0
-        if knot_vec[basis_fnc_idx] <= t_param <= knot_vec[basis_fnc_idx+1] and kvn[basis_fnc_idx] != 0:
-            value = (t_param - tks[0])**2 / ((tks[2] - tks[0]) * (tks[1] - tks[0]))
-        elif knot_vec[basis_fnc_idx+1] <= t_param <= knot_vec[basis_fnc_idx+2] and kvn[basis_fnc_idx+1] != 0:
-            value = ((t_param - tks[0]) * (tks[2] - t_param)) / ((tks[2] - tks[0]) * (tks[2] - tks[1])) + \
-                   ((t_param - tks[1]) * (tks[3] - t_param)) / ((tks[3] - tks[1]) * (tks[2] - tks[1]))
-        elif knot_vec[basis_fnc_idx+2] <= t_param <= knot_vec[basis_fnc_idx+3] and kvn[basis_fnc_idx+2] != 0:
-            value = (tks[3] - t_param)**2 / ((tks[3] - tks[1]) * (tks[3] - tks[2]))
-        SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)] = value
-
-    return value
-
-
-KNOT_VEC_CACHE = {}
-
-
-def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
-    """
-    Compute coordinate of one point at B-Surface (u and v degree is 2)
-    :param poles: matrix of "poles"
-    :param u_param: X coordinate in range <0, 1>
-    :param v_param: Y coordinate in range <0, 1>
-    :param u_knots: list of u knots
-    :param v_knots: list of v knots
-    :param u_mults: list of u multiplicities
-    :param v_mults: list of v multiplicities
-    :return: tuple of (x, y, z) coordinate of B-Spline surface
-    """
-
-    # "Decompress" knot vectors using multiplicities
-    # e.g
-    # u_knots: (0.0, 0.5, 1.0) u_mults: (3, 1, 3) will be converted to
-    # _u_knot: (0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0)
-    _u_knots = []
-    _v_knots = []
-    try:
-        _u_knots = KNOT_VEC_CACHE[(u_knots, u_mults)]
-    except KeyError:
-        for idx, mult in enumerate(u_mults):
-            _u_knots.extend([u_knots[idx]] * mult)
-        KNOT_VEC_CACHE[(u_knots, u_mults)] = _u_knots
-    try:
-        _v_knots = KNOT_VEC_CACHE[(v_knots, v_mults)]
-    except KeyError:
-        for idx, mult in enumerate(v_mults):
-            _v_knots.extend([v_knots[idx]] * mult)
-        KNOT_VEC_CACHE[(v_knots, v_mults)] = _v_knots
-
-    u_n_basf = len(_u_knots) - 3
-    v_n_basf = len(_v_knots) - 3
-
-    uf_mat = [0.0] * u_n_basf
-    vf_mat = [0.0] * v_n_basf
-
-    # Pre-compute base values of functions
-    for k in range(0, u_n_basf):
-        uf_mat[k] = spline_base(_u_knots, k, u_param)
-    for k in range(0, v_n_basf):
-        vf_mat[k] = spline_base(_v_knots, k, v_param)
-
-    x_coord, y_coord, z_coord = 0.0, 0.0, 0.0
-
-    # Compute point at B-Spline surface
-    for i in range(0, u_n_basf):
-        for j in range(0, v_n_basf):
-            base_i_j = uf_mat[i] * vf_mat[j]
-            x_coord += poles[i][j][0] * base_i_j
-            y_coord += poles[i][j][1] * base_i_j
-            z_coord += poles[i][j][2] * base_i_j
-
-    return x_coord, y_coord, z_coord
-
 
 def gen_knots(num=10):
     """
@@ -466,64 +352,6 @@ def gen_knots(num=10):
         knots[i] = (i - 2) * diff
     knots[-3:] = 1.0
     return knots
-
-
-def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
-    """
-    Try to compute difference between terrain data and B-Spline surface approximation.
-    :param terrain_data: iterable data structure containing 3D points of terrain
-    :param poles: tuple of poles
-    :param u_knots: tuple of knots (u direction)
-    :param v_knots: tuple of knots (v direction)
-    :param u_mults: tuple of multiplicities (u direction)
-    :param v_mults: tuple of multiplicities (v direction)
-    :return: list of differences
-    """
-    print('Computing differences ...')
-    start_time = time.time()
-    # Create list of values of differences
-    diff = [0.0] * len(terrain_data)
-    idx = 0
-    for point in terrain_data:
-        # X and Y coordinates should be equal to u and v parameters at
-        # approximated points, but it is not true :-(
-        u_param = point[0, 0]
-        v_param = point[0, 1]
-        z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)[2]
-        diff[idx] = abs(z_coord - point[0, 2])
-        idx += 1
-    end_time = time.time()
-    print('Computed in {0} seconds.'.format(end_time - start_time))
-    return diff
-
-
-def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
-    """
-    Generates points from B-Spline approximation
-    :param poles: tuple of poles
-    :param u_knots: tuple of knots (u direction)
-    :param v_knots: tuple of knots (v direction)
-    :param u_mults: tuple of multiplicities (u direction)
-    :param v_mults: tuple of multiplicities (v direction)
-    :param u_num: number of points generated in u direction
-    :param v_num: number of points generated in u direction
-    :return: list of points laying on B-Spline surface
-    """
-    # Create list of points on surface
-    print('Computing points ...')
-    start_time = time.time()
-    points = [[0.0, 0.0, 0.0] for j in range(u_num * v_num)]
-    for i in range(v_num):
-        for j in range(u_num):
-            idx = i * v_num + j
-            u_param = float(i)/(u_num - 1)
-            v_param = float(j)/(v_num - 1)
-            x_coord, y_coord, z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)
-            points[idx] = (x_coord, y_coord, z_coord)
-    end_time = time.time()
-    print('Computed in {0} seconds.'.format(end_time - start_time))
-    return points
-
 
 def z_mat_to_bspline(u_knots, v_knots, z_mat):
     """
@@ -634,7 +462,10 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    return z_mat_to_bspline(u_knots, v_knots, z_mat)
+    diff = eval_diff(mat_b, z_mat, mat_g)
+
+    z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
+    return z_mat, diff
 
 
 def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
@@ -672,8 +503,10 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    return z_mat_to_bspline(u_knots, v_knots, z_mat)
+    diff = eval_diff(b_mat, z_mat, g_mat)
 
+    z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
+    return z_mat, diff
 
 def approx_chol(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001):
     """
@@ -722,7 +555,27 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.00
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    return z_mat_to_bspline(u_knots, v_knots, z_mat)
+    diff = eval_diff(b_mat, z_mat, g_mat)
+
+    z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
+
+    return z_mat, diff
+
+def eval_diff(b_mat, z_mat, g_mat):
+    """
+    # Compute difference between original terrain data and B-Spline surface
+    :param b_mat: matrix of linear system
+    :param z_mat: solution of the linear system
+    :param g_mat: original RHS
+    :return: list of differences
+    """
+    print('Computing differences ...')
+    start_time = time.time()
+    diff = ((abs(g_mat - numpy.dot(b_mat, z_mat))).transpose()).tolist()[0]
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    return diff
 
 
 def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
@@ -744,3 +597,130 @@ def approx(method, terrain_data, u_knots, v_knots, sparse=False, conf={}):
         return approx_chol(terrain_data, u_knots, v_knots, sparse, conf['threshold'])
     else:
         raise TypeError("Wrong argument method: {0}".format(method))
+
+
+#    KNOT_VEC_CACHE = {}
+#
+# def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
+#     """
+#     Compute coordinate of one point at B-Surface (u and v degree is 2)
+#     :param poles: matrix of "poles"
+#     :param u_param: X coordinate in range <0, 1>
+#     :param v_param: Y coordinate in range <0, 1>
+#     :param u_knots: list of u knots
+#     :param v_knots: list of v knots
+#     :param u_mults: list of u multiplicities
+#     :param v_mults: list of v multiplicities
+#     :return: tuple of (x, y, z) coordinate of B-Spline surface
+#     """
+#
+#     # "Decompress" knot vectors using multiplicities
+#     # e.g
+#     # u_knots: (0.0, 0.5, 1.0) u_mults: (3, 1, 3) will be converted to
+#     # _u_knot: (0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0)
+#     _u_knots = []
+#     _v_knots = []
+#     try:
+#         _u_knots = KNOT_VEC_CACHE[(u_knots, u_mults)]
+#     except KeyError:
+#         for idx, mult in enumerate(u_mults):
+#             _u_knots.extend([u_knots[idx]] * mult)
+#         KNOT_VEC_CACHE[(u_knots, u_mults)] = _u_knots
+#     try:
+#         _v_knots = KNOT_VEC_CACHE[(v_knots, v_mults)]
+#     except KeyError:
+#         for idx, mult in enumerate(v_mults):
+#             _v_knots.extend([v_knots[idx]] * mult)
+#         KNOT_VEC_CACHE[(v_knots, v_mults)] = _v_knots
+#
+#     u_n_basf = len(_u_knots) - 3
+#     v_n_basf = len(_v_knots) - 3
+#
+#     uf_mat = [0.0] * u_n_basf
+#     vf_mat = [0.0] * v_n_basf
+#
+#     # Pre-compute base values of functions
+#     for k in range(0, u_n_basf):
+#         uf_mat[k] = spline_base(_u_knots, k, u_param)
+#     for k in range(0, v_n_basf):
+#         vf_mat[k] = spline_base(_v_knots, k, v_param)
+#
+#     x_coord, y_coord, z_coord = 0.0, 0.0, 0.0
+#
+#     # Compute point at B-Spline surface
+#     for i in range(0, u_n_basf):
+#         for j in range(0, v_n_basf):
+#             base_i_j = uf_mat[i] * vf_mat[j]
+#             x_coord += poles[i][j][0] * base_i_j
+#             y_coord += poles[i][j][1] * base_i_j
+#             z_coord += poles[i][j][2] * base_i_j
+#
+#     return x_coord, y_coord, z_coord
+
+#def gen_points(poles, u_knots, v_knots, u_mults, v_mults, u_num=100, v_num=100):
+#    """
+#    Generates points from B-Spline approximation
+#    :param poles: tuple of poles
+#    :param u_knots: tuple of knots (u direction)
+#    :param v_knots: tuple of knots (v direction)
+#    :param u_mults: tuple of multiplicities (u direction)
+#    :param v_mults: tuple of multiplicities (v direction)
+#    :param u_num: number of points generated in u direction
+#    :param v_num: number of points generated in u direction
+#    :return: list of points laying on B-Spline surface
+#    """
+#    # Create list of points on surface
+#    print('Computing points ...')
+#    start_time = time.time()
+#    points = [[0.0, 0.0, 0.0] for j in range(u_num * v_num)]
+#    for i in range(v_num):
+#        for j in range(u_num):
+#            idx = i * v_num + j
+#            u_param = float(i)/(u_num - 1)
+#            v_param = float(j)/(v_num - 1)
+#            x_coord, y_coord, z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)
+#            points[idx] = (x_coord, y_coord, z_coord)
+#    end_time = time.time()
+#    print('Computed in {0} seconds.'.format(end_time - start_time))
+#    return points
+
+#def spline_base(knot_vec, basis_fnc_idx, t_param):
+#     """
+#     This function compute normalized blending function aka base function of B-Spline curve or surface.
+#     This function implement some optimization. Used by QR method.
+#     :param knot_vec: knot vector
+#     :param basis_fnc_idx: index of basis function
+#     :param t_param: parameter t in interval <0, 1>
+#     :return: value of basis function
+#     """
+#
+#     # When basis function has zero value at given interval, then return 0
+#     if t_param < knot_vec[basis_fnc_idx] or knot_vec[basis_fnc_idx+3] < t_param:
+#         return 0.0
+#
+#     try:
+#         value = SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)]
+#     except KeyError:
+#         try:
+#             kvn = KVN_CACHE[tuple(knot_vec)]
+#         except KeyError:
+#             knot_vec_len = len(knot_vec)
+#             kvn = [0] * knot_vec_len
+#             i = 0
+#             while i < knot_vec_len - 1:
+#                 if knot_vec[i] - knot_vec[i+1] != 0:
+#                     kvn[i] = 1.0
+#                 i += 1
+#             KVN_CACHE[tuple(knot_vec)] = kvn
+#         tks = [knot_vec[basis_fnc_idx + k] for k in range(0, 4)]
+#         value = 0.0
+#         if knot_vec[basis_fnc_idx] <= t_param <= knot_vec[basis_fnc_idx+1] and kvn[basis_fnc_idx] != 0:
+#             value = (t_param - tks[0])**2 / ((tks[2] - tks[0]) * (tks[1] - tks[0]))
+#         elif knot_vec[basis_fnc_idx+1] <= t_param <= knot_vec[basis_fnc_idx+2] and kvn[basis_fnc_idx+1] != 0:
+#             value = ((t_param - tks[0]) * (tks[2] - t_param)) / ((tks[2] - tks[0]) * (tks[2] - tks[1])) + \
+#                    ((t_param - tks[1]) * (tks[3] - t_param)) / ((tks[3] - tks[1]) * (tks[2] - tks[1]))
+#         elif knot_vec[basis_fnc_idx+2] <= t_param <= knot_vec[basis_fnc_idx+3] and kvn[basis_fnc_idx+2] != 0:
+#             value = (tks[3] - t_param)**2 / ((tks[3] - tks[1]) * (tks[3] - tks[2]))
+#         SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)] = value
+#
+#     return value

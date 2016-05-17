@@ -770,4 +770,14 @@ class TerrainData(object):
         else:
             sewing.Perform()
             sewing_shape = sewing.SewedShape()
-            OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])
+            if len(self.area_borders_2d) > 0:
+                self.create_volume_from_area(extrude_diff)
+                # TODO: This code works only for one area
+                print('Computing union between volume and surface ...')
+                start_time = time.time()
+                self.volume = OCC.BRepAlgoAPI.BRepAlgoAPI_Common(self.area_volumes[0], sewing_shape).Shape()
+                end_time = time.time()
+                print('Computed in {0} seconds.'.format(end_time - start_time))
+                OCC.BRepTools.breptools_Write(self.volume, self.conf['output'])
+            else:
+                OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])

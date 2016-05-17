@@ -757,7 +757,11 @@ class TerrainData(object):
             if len(self.area_borders_2d) > 0:
                 self.create_volume_from_area(extrude_diff)
                 # TODO: This code works only for one area
+                print('Computing union between volumes ...')
+                start_time = time.time()
                 self.volume = OCC.BRepAlgoAPI.BRepAlgoAPI_Common(self.area_volumes[0], solid).Shape()
+                end_time = time.time()
+                print('Computed in {0} seconds.'.format(end_time - start_time))
                 builder.Add(compound, self.volume)
             else:
                 builder.Add(compound, solid)

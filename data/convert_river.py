@@ -149,7 +149,7 @@ def convert(input_filename, output_filename, limit, diff):
         if limit > 0.0:
             river = merge_points(river, limit)
         new_rivers[river_id] = river
-    draw_rivers(new_rivers, color='r', show=True)
+    draw_rivers(new_rivers, color='r')
     write_rivers(new_rivers, output_filename)
 
 

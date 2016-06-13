@@ -305,6 +305,7 @@ class TerrainData(object):
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:
+            #self.max_diff = self.tW.max()
             self.max_diff = max(self.tW)
             print('Max difference {0}'.format(self.max_diff))
             if output_diff is not None:

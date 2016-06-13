@@ -13,7 +13,7 @@ terrain:
       threshold: 0.01
       # Use sparse matrices for computing (for some reason it is very, very slow now).
       # It works for qr and svd method (not scipy).
-      sparse: false
+      sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases

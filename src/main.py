@@ -24,14 +24,11 @@ def main(yaml_conf_filename):
     terrain.load_terrain()
     terrain.load_rivers()
     terrain.load_area()
+    terrain.load_fractures()
 
     terrain.approximate_terrain()
 
-    if terrain.conf['area']['approximate'] is True:
-        terrain.approximate_2d_borders()
-
-    if terrain.conf['rivers']['approximate'] is True:
-        terrain.approximate_2d_rivers()
+    terrain.approximate_2d_rivers()
 
     terrain.output_approx_data()
 

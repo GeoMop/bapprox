@@ -8,7 +8,7 @@ terrain:
   # surface will be extruded allong z-axis and volume object will be saved to output
   # BREP file. When extrude_diff is not set or it is zero, then only surface will be
   # exported to BREP output file.
-  extrude_diff: 0.0
+  extrude_diff: -100.0
 
   # Options of terrain approximation
   approximation:
@@ -27,24 +27,31 @@ terrain:
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases
     # and it can be very slow).
-    u_knots_num: 20
-    v_knots_num: 20
+    u_knots_num: 15
+    v_knots_num: 15
     # Optional: compute differences between B-Spline surface and terrain.
     # Diferences between can be visualized and/or be written to the file.
     differences: true
     # Optional: CSV file for output of diferences
     output_differences: './differences.csv'
 
-# Optional
+# Optional: When this data file is set, then it will be used for croping volume
+# defined by surface and extrusion
 area:
   input: './data/vymezeni.txt'
-  approximate: false
+  # Other possible input files included in ./data directory
 
-# Optional
+# Optional: When this data file is set, then points of rivers will be approximated
+# with B-Spline curves and these curves will be sewed with B-Spline pathes approximating
+# terrain
 rivers:
-  input: './data/reky_body.txt'
-  approximate: false
+  input: './data/rivers.txt'
 
+# Optional: BREP file with fractures
+#fractures:
+#  input: './data/fractures.brep'
+
+# Required: name of output file.
 output: 'terrain.brep'
 
 display:
@@ -52,3 +59,7 @@ display:
   terrain: true
   # Approximated surface using B-Spline patch(es)
   surface: true
+  # Rivers visualized with dots ATM
+  rivers: true
+  # Fractures loaded from external BREP file
+  fractures: false

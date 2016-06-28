@@ -27,8 +27,8 @@ terrain:
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases
     # and it can be very slow).
-    u_knots_num: 20
-    v_knots_num: 20
+    u_knots_num: 15
+    v_knots_num: 15
     # Optional: compute differences between B-Spline surface and terrain.
     # Diferences between can be visualized and/or be written to the file.
     differences: true
@@ -40,11 +40,16 @@ terrain:
 area:
   input: './data/vymezeni.txt'
   # Other possible input files included in ./data directory
-  # input: './data/area.txt'
 
-# Optional: It is not used for anything ATM.
+# Optional: When this data file is set, then points of rivers will be approximated
+# with B-Spline curves and these curves will be sewed with B-Spline pathes approximating
+# terrain
 rivers:
-  input: './data/reky_body.txt'
+  input: './data/rivers.txt'
+
+# Optional: BREP file with fractures
+#fractures:
+#  input: './data/fractures.brep'
 
 # Required: name of output file.
 output: 'terrain.brep'
@@ -54,3 +59,7 @@ display:
   terrain: true
   # Approximated surface using B-Spline patch(es)
   surface: true
+  # Rivers visualized with dots ATM
+  rivers: true
+  # Fractures loaded from external BREP file
+  fractures: false

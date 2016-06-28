@@ -24,8 +24,11 @@ def main(yaml_conf_filename):
     terrain.load_terrain()
     terrain.load_rivers()
     terrain.load_area()
+    terrain.load_fractures()
 
     terrain.approximate_terrain()
+
+    terrain.approximate_2d_rivers()
 
     terrain.output_approx_data()
 

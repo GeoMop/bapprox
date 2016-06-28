@@ -19,6 +19,7 @@ import OCC.Graphic3d
 import OCC.Aspect
 import OCC.gp
 import OCC.BRepLib
+import OCC.GeomAPI
 
 import convert.bspline
 
@@ -57,12 +58,15 @@ class TerrainData(object):
         self.points = None
         self.rivers_data_2d = {}
         self.rivers_data_3d = {}
+        self.rivers_curves_3d = {}
         self.area_borders_2d = {}
         self.area_borders_3d = {}
         self.area_volumes = {}
         self.bspline_surfaces = {}
         self.shell = None
         self.volume = None
+        self.sewing_shape = None
+        self.fractures_shape = None
 
     def load_conf_from_yaml(self):
         """
@@ -129,6 +133,11 @@ class TerrainData(object):
             self.conf['rivers']
         except KeyError:
             self.conf['rivers'] = {}
+        # Fractures
+        try:
+            self.conf['fractures']
+        except KeyError:
+            self.conf['fractures'] = {}
         # Display results
         try:
             self.conf['display']
@@ -142,6 +151,14 @@ class TerrainData(object):
             self.conf['display']['terrain']
         except KeyError:
             self.conf['display']['terrain'] = False
+        try:
+            self.conf['display']['rivers']
+        except KeyError:
+            self.conf['display']['rivers'] = True
+        try:
+            self.conf['display']['fractures']
+        except KeyError:
+            self.conf['display']['fractures'] = False
 
     def __post_process_terrain_data(self):
         """
@@ -251,6 +268,16 @@ class TerrainData(object):
                     items = line.split()
                     # Only one border ATM
                     self.area_borders_2d[0].append(tuple(float(item) for item in items[1:]))
+
+    def load_fractures(self):
+        """
+        Try to load BREP file with fractures.
+        :return:
+        """
+        if 'fractures' in self.conf and 'input' in self.conf['fractures']:
+            self.fractures_shape = OCC.TopoDS.TopoDS_Shape()
+            builder = OCC.BRep.BRep_Builder()
+            OCC.BRepTools.breptools_Read(self.fractures_shape, self.conf['fractures']['input'], builder)
 
     def approximate_terrain(self):
         """
@@ -473,6 +500,14 @@ class TerrainData(object):
                 last_z = z_coord
                 self.rivers_data_3d[river_id].append((river_pnt[0], river_pnt[1], z_coord))
 
+            # Use OCC to approximate rivers with BSpline curve
+            array = OCC.TColgp.TColgp_Array1OfPnt(1, len(self.rivers_data_3d[river_id]))
+            point_id = 1
+            for point in self.rivers_data_3d[river_id]:
+                array.SetValue(point_id, OCC.gp.gp_Pnt(point[0], point[1], point[2]))
+                point_id += 1
+            self.rivers_curves_3d[river_id] = OCC.GeomAPI.GeomAPI_PointsToBSpline(array).Curve()
+
     @staticmethod
     def create_ogl_group(display):
         """
@@ -497,6 +532,8 @@ class TerrainData(object):
         diffs = self.conf['terrain']['approximation']['differences']
         display_surf = self.conf['display']['surface']
         display_terr = self.conf['display']['terrain']
+        display_rivers = self.conf['display']['rivers']
+        display_fractures = self.conf['display']['fractures']
 
         if display_surf is True:
             if self.volume is not None:
@@ -507,6 +544,13 @@ class TerrainData(object):
                     display.DisplayMessage(occ_point, str(point_id));
                 # Display volume
                 display.DisplayShape(self.volume, update=True)
+                # Display original terrain with transparency
+                if self.shell is not None:
+                    ais_shell = display.DisplayShape(self.shell, update=True)
+                    display.Context.SetTransparency(ais_shell, 0.8)
+                else:
+                    ais_sewing = display.DisplayShape(self.sewing_shape, update=True)
+                    display.Context.SetTransparency(ais_sewing, 0.8)
             elif self.shell is not None:
                 display.DisplayShape(self.shell, update=True)
             else:
@@ -547,6 +591,30 @@ class TerrainData(object):
             group.SetPrimitivesAspect(asp.GetHandle())
             group.AddPrimitiveArray(pnt_array.GetHandle())
             a_presentation.Display()
+
+        if display_rivers is True:
+            a_presentation, group = self.create_ogl_group(display)
+            black = OCC.Quantity.Quantity_Color(OCC.Quantity.Quantity_NOC_BLACK)
+            asp = OCC.Graphic3d.Graphic3d_AspectLine3d(black, OCC.Aspect.Aspect_TOL_SOLID, 1)
+            count = 0
+            for river in self.rivers_data_3d.values():
+                count += len(river)
+            pnt_array = OCC.Graphic3d.Graphic3d_ArrayOfPoints(count,
+                                                              False,  # hasVColors
+                                                              )
+            for river in self.rivers_data_3d.values():
+                for point in river:
+                    pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
+                    pnt_array.AddVertex(pnt)
+            group.SetPrimitivesAspect(asp.GetHandle())
+            group.AddPrimitiveArray(pnt_array.GetHandle())
+            a_presentation.Display()
+
+            # for river in self.rivers_curves_3d.values():
+            #     display.DisplayShape(river, update=True)
+
+        if display_fractures is True and 'input' in self.conf['fractures']:
+            display.DisplayShape(self.fractures_shape, update=True)
 
         start_display()
 
@@ -740,9 +808,9 @@ class TerrainData(object):
                 sewing.Add(face)
             # Sew it all together
             sewing.Perform()
-            sewing_shape = sewing.SewedShape()
+            self.sewing_shape = sewing.SewedShape()
             # Create shell, solid and compound
-            self.shell = OCC.TopoDS.topods_Shell(sewing_shape)
+            self.shell = OCC.TopoDS.topods_Shell(self.sewing_shape)
             make_solid = OCC.BRepBuilderAPI.BRepBuilderAPI_MakeSolid()
             make_solid.Add(self.shell)
             solid = make_solid.Solid()
@@ -769,15 +837,21 @@ class TerrainData(object):
             OCC.BRepTools.breptools_Write(compound, self.conf['output'])
         else:
             sewing.Perform()
-            sewing_shape = sewing.SewedShape()
+            self.sewing_shape = sewing.SewedShape()
             if len(self.area_borders_2d) > 0:
                 self.create_volume_from_area(extrude_diff)
+                # Test of section between surface and faces
+                # print('Computing section between volume and surface ...')
+                # start_time = time.time()
+                # OCC.BRepAlgoAPI.BRepAlgoAPI_Section(self.area_volumes[0], self.sewing_shape)
+                # end_time = time.time()
+                # print('Computed in {0} seconds.'.format(end_time - start_time))
                 # TODO: This code works only for one area
                 print('Computing union between volume and surface ...')
                 start_time = time.time()
-                self.volume = OCC.BRepAlgoAPI.BRepAlgoAPI_Common(self.area_volumes[0], sewing_shape).Shape()
+                self.volume = OCC.BRepAlgoAPI.BRepAlgoAPI_Common(self.area_volumes[0], self.sewing_shape).Shape()
                 end_time = time.time()
                 print('Computed in {0} seconds.'.format(end_time - start_time))
                 OCC.BRepTools.breptools_Write(self.volume, self.conf['output'])
             else:
-                OCC.BRepTools.breptools_Write(sewing_shape, self.conf['output'])
+                OCC.BRepTools.breptools_Write(self.sewing_shape, self.conf['output'])

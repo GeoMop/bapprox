@@ -295,13 +295,11 @@ class TerrainData(object):
             terrain = numpy.matrix(self.points)
             # Do own B-Spline approximation o terrain data
             if solver_method == 'svd' or solver_method == 'chol':
-                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
+                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
             else:
-                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)
+                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)
             poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = raw
             if comp_diffs is True:
-                # Compute difference between original terrain data and B-Spline surface
-                diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)
                 self.tW = diffs
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
@@ -314,6 +312,7 @@ class TerrainData(object):
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:
+            #self.max_diff = self.tW.max()
             self.max_diff = max(self.tW)
             print('Max difference {0}'.format(self.max_diff))
             if output_diff is not None:

@@ -270,15 +270,18 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
             # possible problem: u x v
             # Hard-coded Kronecker product (problem based)
             for n in range(0,3):
-                data[nnz_b + 3 * n:nnz_b + 3 * (n + 1)] = u_base_vec[n] * v_base_vec
+                #data[nnz_b + 3 * n:nnz_b + 3 * (n + 1)] = u_base_vec[n] * v_base_vec
+                data[nnz_b + 3 * n:nnz_b + 3 * (n + 1)] = v_base_vec[n] * u_base_vec
                 for m in range(0,3):
-                    col[nnz_b + (3 * n) + m] = (i_idx + n) * v_n_basf + j_idx + m
+                    #col[nnz_b + (3 * n) + m] = (i_idx + n) * v_n_basf + j_idx + m
+                    col[nnz_b + (3 * n) + m] = (j_idx + n) * u_n_basf + i_idx + m
                 #col[nnz_b + 3 * n:nnz_b + 3 * (n + 1)] = [(i_idx+n) * v_n_basf + j_idx, (i_idx+n) * v_n_basf + j_idx + 1, (i_idx+n) * v_n_basf + j_idx + 2]
             row[nnz_b:nnz_b+9] = idx
             nnz_b +=  9
         else:
             # possible problem: u x v
-            mat_b[idx] = numpy.kron(u_base_vec, v_base_vec)
+            #mat_b[idx] = numpy.kron(u_base_vec, v_base_vec)
+            mat_b[idx] = numpy.kron(v_base_vec, u_base_vec)
 
         interval[idx][0] = i_idx
         interval[idx][1] = j_idx

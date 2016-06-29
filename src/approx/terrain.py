@@ -163,7 +163,6 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
         basis_values = numpy.zeros(n_basf)
     #if sparse is False:
 
-
     tk1 = knot_vec[idx + 1]
     tk2 = knot_vec[idx + 2]
     tk3 = knot_vec[idx + 3]
@@ -183,7 +182,6 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
 
     row = [0, 0 ,0]
     col = [idx, idx+1, idx+2]
-
 
     # basis function values
     if order == 0:
@@ -209,6 +207,7 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
             basis_values[idx + 2] = 2 * dt2 / d42_d32
 
     return basis_values, idx
+
 
 def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.0, 1.0)), sparse=False):
     """
@@ -288,6 +287,7 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
         mat_b = scipy.sparse.csr_matrix((data,(row,col)),shape=(terrain_len, u_n_basf * v_n_basf))
 
     return mat_b, interval
+
 
 def build_reg_matrix(u_knots, v_knots, sparse):
     """
@@ -430,6 +430,7 @@ def build_reg_matrix(u_knots, v_knots, sparse):
                         mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
 
     return mat_a
+
 
 def gen_knots(num=10):
     """
@@ -600,6 +601,7 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
     return z_mat, diff
 
+
 def approx_chol(terrain_data, u_knots, v_knots, sparse, filter_thresh):
     """
     This function tries to approximate terrain data with B-Spline surface patches
@@ -681,11 +683,6 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse, filter_thresh):
     # diff = list(diff)
     #print(diff)
 
-
-
-
-
-
     #diff = (b_mat.dot(z_mat_csr) - g_mat)
     #print(type(diff),diff.shape)
     #diff = diff.transpose()
@@ -695,10 +692,10 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse, filter_thresh):
     #print(type(b_mat * z_mat),type(g_mat[:,0]))
     #diff = eval_diff(b_mat, z_mat, g_mat)
 
-
     z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
 
     return z_mat, diff
+
 
 def eval_diff(b_mat, z_mat, g_mat):
     """

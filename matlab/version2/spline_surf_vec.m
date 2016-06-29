@@ -24,6 +24,10 @@ v_knots = get_knot_vector(v_n_basf);
 xp = [0.0;1.0];
 yp = [0.0;2.0];
 
+P0 = [0; 0];
+P1 = [2; 0.5];
+P2 = [1.5; 2];
+P3 = [0.3; 1.7];
 
 %%% Interpolating points
 

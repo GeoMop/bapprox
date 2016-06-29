@@ -1,7 +1,7 @@
 terrain:
   #input: './data/teren.txt'
-  input: './data/teren_10.txt'
-  #input: './data/baze_100m_export.csv'
+  #input: './data/teren_10.txt'
+  input: './data/baze_100m_export.csv'
   approximation:
     solver:
       # Posible values of solver method: scipy, qr, svd, chol

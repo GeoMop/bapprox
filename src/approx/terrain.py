@@ -356,7 +356,7 @@ def build_reg_matrix(u_knots, v_knots, sparse):
         row_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
         col_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
         data_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
-        ones = numpy.ones(shape=(1,9))
+        #ones = numpy.ones(shape=(1,9))
         nnz_a = 0
 
         for i in range(v_n_inter):
@@ -453,7 +453,7 @@ def z_mat_to_bspline(u_knots, v_knots, z_mat):
     This function create B-Spline patch in raw format
     :param u_knots:
     :param v_knots:
-    :param z_mat:
+    :param z_mat: iz = iu + nu * iv
     """
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
@@ -461,12 +461,11 @@ def z_mat_to_bspline(u_knots, v_knots, z_mat):
     # Create list of poles from z_mat
     poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
 
-    for i in range(0, u_n_basf):
-        for j in range(0, v_n_basf):
+    for j in range(0, v_n_basf):
+        for i in range(0, u_n_basf):
             x_coord = float(i) / (u_n_basf - 1)
             y_coord = float(j) / (v_n_basf - 1)
-            #z_coord = z_mat[i * v_n_basf + j, 0]
-            z_coord = z_mat[i * v_n_basf + j]
+            z_coord = z_mat[j * u_n_basf + i]
             poles[i][j] = (x_coord, y_coord, z_coord)
 
     # Create degrees

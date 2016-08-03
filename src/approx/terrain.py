@@ -386,7 +386,7 @@ def build_reg_matrix(u_knots, v_knots, P0, P1, P2, P3, sparse):
                             for p in range(0,3):
                                 colv[3*n+p] = (j_idx+n) * u_n_basf + i_idx
                         # Hard-coded Outer product:  Jacobian * weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
-                        coef =  weights[m] * weights[k] * compute_jacobian(q_u_point[l * n_points + m], q_v_point[i * n_points + k], a, b, c, d)
+                        coef =  weights[m] * weights[k]# * compute_jacobian(q_u_point[l * n_points + m], q_v_point[i * n_points + k], a, b, c, d)
                         for n in range(0,9):
                             row_m[nnz_a + 9*n:nnz_a + 9*(n+1)] = colv
                             col_m[nnz_a + 9*n:nnz_a + 9*(n+1)] = colv[n]
@@ -658,14 +658,15 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse, filter_thresh):
 
     if sparse is True:
         #scipy.sparse.linalg.norm(bb_mat, 1)
-        bb_norm = numpy.linalg.norm(bb_mat.todense(), 1)
-        a_norm = numpy.linalg.norm(a_mat.todense(), 1)
+        bb_norm = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None, maxiter=300, return_singular_vectors=False)
+        #bb_mnsg = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-2, which='SM', v0=None, maxiter=300, return_singular_vectors=False)
+        a_norm = scipy.sparse.linalg.svds(a_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None, maxiter=300, return_singular_vectors=False)
     else:
         bb_norm = numpy.linalg.norm(bb_mat)
         a_norm = numpy.linalg.norm(a_mat)
 
     r = filter_thresh
-    c_mat = bb_mat + r * (bb_norm / a_norm) * a_mat
+    c_mat = bb_mat + r * (bb_norm[0] / a_norm[0])  * a_mat
 
     g_mat = terrain_data[:, 2]
     b_vec = b_mat.transpose() * g_mat

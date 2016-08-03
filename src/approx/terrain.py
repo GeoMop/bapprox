@@ -684,6 +684,7 @@ def approx_chol(terrain_data, u_knots, v_knots, sparse, filter_thresh):
         print(z_mat.shape)
         print((abs(g_mat - numpy.dot(b_mat, z_mat))).shape)
         diff = ((abs(g_mat - numpy.dot(b_mat, z_mat))).transpose()).tolist()[0]
+        z_mat = [ item[0] for item in z_mat ]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 

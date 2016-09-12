@@ -1,7 +1,7 @@
 terrain:
-  input: './data/teren.txt'
+  #input: './data/teren.txt'
   # Other possible input files included in ./data directory
-  #input: './data/teren_10.txt'
+  input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
 
   # Optional: When this value is set or is not zero value, then approximated B-Spline
@@ -35,6 +35,10 @@ terrain:
     # Optional: CSV file for output of diferences
     output_differences: './differences.csv'
 
+    quad_x:  0 2 5 8
+    quad_y:  5 8 7 4
+
+
 # Optional: When this data file is set, then it will be used for croping volume
 # defined by surface and extrusion
 area:
@@ -56,7 +60,7 @@ output: 'terrain.brep'
 
 display:
   # Original surface visualized with crosses
-  terrain: true
+  terrain: false
   # Approximated surface using B-Spline patch(es)
   surface: true
   # Rivers visualized with dots ATM

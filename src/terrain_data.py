@@ -68,6 +68,10 @@ class TerrainData(object):
         self.sewing_shape = None
         self.fractures_shape = None
 
+        self.quad_x = {-820800.0, -818100.0,-820800.0, -818100.0}
+        self.quad_y = {-1032100.0, -1029500.0,-1032100.0, -1029500.0}
+
+
     def load_conf_from_yaml(self):
         """
         Load configuration form yaml file
@@ -228,9 +232,10 @@ class TerrainData(object):
             z_coord = self.terrain_data[index][2]
             self.grid[(i, j)] = (x_coord, y_coord, z_coord)
             # Transform x, y coordinates to range <0, 1>
-            x_coord = (x_coord - self.min_x) / self.diff_x
-            y_coord = (y_coord - self.min_y) / self.diff_y
+            #x_coord = (x_coord - self.min_x) / self.diff_x
+            #y_coord = (y_coord - self.min_y) / self.diff_y
             self.points[index] = (x_coord, y_coord, z_coord)
+            #print(self.min_x,self.max_x,self.min_y,self.max_y)
 
     def load_terrain(self):
         """
@@ -320,9 +325,20 @@ class TerrainData(object):
             u_knots = approx.terrain.gen_knots(u_knots_num)
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
+            #quad = numpy.matrix([[-820800.0, -818100.0,-820800.0, -818100.0],[-1032100.0, -1029500.0,-1032100.0, -1029500.0]])
+            #quad = numpy.matrix([[-820800.0 *0.99, -818100.0, -818100.0*1.02, -820800.0],[-1032100.0,-1032100.0 *0.99, -1029500.0*1.02, -1029500.0,]])
+            #quad = numpy.matrix([[-820800.0, -818100.0, -818100.0, -820800.0],[-1032100.0,-1032100.0, -1029500.0, -1029500.0,]])
+            #quad = numpy.matrix([[-820200.0, -818100.0, -820300.0, -820800.0],[-1032100.0,-1031500.0, -1030000.0, -1029500.0,]])
+            #quad = numpy.matrix([[-820200.0, -818100.0, -820300.0, -820800.0],[-1032100.0,-1031500.0, -1028000.0, -1029500.0,]])
+            #quad = numpy.matrix([[-820200.0, -818100.0, -820100.0, -820800.0],[-1032100.0,-1031500.0, -1031000.0, -1029500.0,]])
+            #quad = numpy.matrix([[-820200.0, -818100.0, -820100.0, -820800.0],[-1032100.0,-1031500.0, -1030200.0, -1029500.0,]])
+            #quad = numpy.matrix([[-820200.0, -818100.0, -818100.0, -820800.0],[-1032100.0,-1032100.0, -1029500.0, -1029500.0,]]) ok
+            #quad = numpy.matrix([[-820000.0, -818100.0, -819500.0, -820800.0],[-1032100.0,-1032100.0, -1029900.0, -1029500.0,]])
+            quad = numpy.matrix([[-820050.0, -819550.0, -818100.0, -820800.0],[-1032100.0,-1032100.0, -1029500.0, -1029500.0,]])
+
             # Do own B-Spline approximation o terrain data
             if solver_method == 'svd' or solver_method == 'chol':
-                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
+                raw, diffs = approx.terrain.approx(solver_method, terrain, quad,u_knots, v_knots, sparse, {'threshold': threshold})
             else:
                 raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)
             poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = raw
@@ -330,12 +346,12 @@ class TerrainData(object):
                 self.tW = diffs
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
-            for i in range(0, len(poles)):
-                for j in range(0, len(poles[0])):
-                    x_coord = self.min_x + self.diff_x * poles[i][j][0]
-                    y_coord = self.min_y + self.diff_y * poles[i][j][1]
-                    poles[i][j] = (x_coord, y_coord, poles[i][j][2])
-            raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+            #for i in range(0, len(poles)):
+            #    for j in range(0, len(poles[0])):
+            #        x_coord = self.min_x + self.diff_x * poles[i][j][0]
+            #        y_coord = self.min_y + self.diff_y * poles[i][j][1]
+            #        poles[i][j] = (x_coord, y_coord, poles[i][j][2])
+            #raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:

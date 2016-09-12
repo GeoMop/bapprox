@@ -56,7 +56,7 @@ nnzC = nnz(C);
  
  S = C+0.3*r*A;
 
-z = pcg(S,b,1e-12,500);
+z = pcg(A,b,1e-12,500);
 
 %%% Solution
 

@@ -8,6 +8,8 @@ B-Spline Approximator
 
 Python tool for approximate 3d points using Bspline surface.
 
+![Bapprox screenshot](/data/screenshot.png "Bapprox screenshot")
+
 Requirements
 ------------
 

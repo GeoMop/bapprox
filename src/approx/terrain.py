@@ -99,36 +99,22 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
         n = len(_knot_vec)
         mn = 2
         mx = n - 3
-        est = min((2 + int(_t_param * (n - 5))), n-4)
-
-#        if _t_param < 0.0:
-#            idx = 0
-#            print('Problem')
-#            exit()
-#            return idx
+        est = min((2 + int(_t_param * (n - 5))), n - 4)
+        _idx = 0
 
         if _t_param >= _knot_vec[est]:
             mn = est
         elif _t_param < _knot_vec[est]:
             mx = est
 
-    #    print(est)
-    #    print(_knot_vec)
-    #    print(_t_param)
-    #    print(mn,mx)
-      #  if mn == mx:
-      #      idx = mn-3
-      #      return idx
-
         s = int(max(math.ceil(math.log(mx - mn, 2)), 1))
 
-        my_list = range(s + 1)
-        for p in my_list:
+        for p in range(s + 1):
             if _t_param < _knot_vec[mn + 1]:
-                idx = mn - 2
+                _idx = mn - 2
                 break
             elif _t_param > _knot_vec[mx - 1]:
-                idx = mx - 3
+                _idx = mx - 3
                 break
 
             mid = mn + int((mx - mn) / 2)
@@ -138,17 +124,10 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
                 elif _t_param > _knot_vec[mid]:
                     mn = mid
             else:
-                idx = mn - 2
+                _idx = mn - 2
                 break
-        return idx
 
-#        knot_vec_len = len(_knot_vec) - 5
-#        estim_idx = int(2 + _t_param * knot_vec_len)
-#        if _knot_vec[estim_idx-1] <= _t_param < _knot_vec[estim_idx]:
-#            # Usually only one step
-#            while _knot_vec[estim_idx-1] <= _t_param < _knot_vec[estim_idx]:
-#                estim_idx -= 1
-#        return estim_idx - 2
+        return _idx
 
     idx = find_index(knot_vec, t_param)
     n_basf = len(knot_vec) - 3
@@ -158,7 +137,6 @@ def spline_base_vec(knot_vec, t_param, order, sparse=False):
         basis_values = numpy.zeros(3)
     else:
         basis_values = numpy.zeros(n_basf)
-    #if sparse is False:
 
     tk1 = knot_vec[idx + 1]
     tk2 = knot_vec[idx + 2]
@@ -231,6 +209,7 @@ def test_spline_base_vec(knots=numpy.array((0.0, 0.0, 0.0, 1/3.0, 2/3.0, 1.0, 1.
         plt.plot(x_coord, temp.values())
     plt.show()
 
+
 def build_ls_matrix(u_knots, v_knots, terrain, sparse):
     """
     Construction of the matrix (B) of the system of linear algebraic
@@ -248,8 +227,6 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
     row = numpy.zeros(terrain_len * 9 )
     col = numpy.zeros(terrain_len * 9 )
     data = numpy.zeros(terrain_len * 9 )
-
-
 
     if sparse is True:
         nnz_b = 0
@@ -280,214 +257,196 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
 
     return mat_b, interval
 
-def build_reg_matrix(u_knots, v_knots, quad, sparse):
+
+def build_sparse_reg_matrix(u_knots, v_knots, quad):
     """
     Construction of the regularization matrix (A) to decrease variation of the terrain
     B z = b  ---> (B^T B + A)z = B^T b
-    :param u_knots:
-    :param v_knots:
-    :param P0, P1, P2, P3: points defining quadrangle area (array)
-    :param sparse:
-    :return:
+    :param u_knots: vector of v-knots
+    :param v_knots: vector of u-knots
+    :param quad: points defining quadrangle area (array)
+    :return: matrix
     """
-    import sys
-    import time
 
-    a = quad[:,3] - quad[:,2]
-    b = quad[:,0] - quad[:,1]
-    c = quad[:,1] - quad[:,2]
-    d = quad[:,0] - quad[:,3]
-
+    a = quad[:, 3] - quad[:, 2]
+    b = quad[:, 0] - quad[:, 1]
+    c = quad[:, 1] - quad[:, 2]
+    d = quad[:, 0] - quad[:, 3]
 
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
     u_n_inter = len(u_knots) - 5
     v_n_inter = len(v_knots) - 5
-    
-    q_points = [0, (0.5 - 1/math.sqrt(20)), (0.5 + 1/math.sqrt(20)), 1]
-    weights = [1.0/6, 5.0/6, 5.0/6, 1.0/6]
+
+    q_points = [0, (0.5 - 1 / math.sqrt(20)), (0.5 + 1 / math.sqrt(20)), 1]
+    weights = [1.0 / 6, 5.0 / 6, 5.0 / 6, 1.0 / 6]
     n_points = len(q_points)
 
+    u_point_val = numpy.zeros((3, u_n_inter * n_points))
+    ud_point_val = numpy.zeros((3, u_n_inter * n_points))
+    u_point_idx = numpy.zeros((u_n_inter * n_points, 1))
+    q_u_point = numpy.zeros((u_n_inter * n_points, 1))
+
+    n = 0
+    for i in range(0, u_n_inter):
+        us = u_knots[i + 2]
+        uil = u_knots[i + 3] - u_knots[i + 2]
+        my_list = range(n_points)
+        for j in my_list:
+            up = us + uil * q_points[j]
+            q_u_point[n] = up  #
+            u_base_vec, i_idx = spline_base_vec(u_knots, up, 0, True)
+            u_base_vec_diff, i_idx = spline_base_vec(u_knots, up, 1, True)
+            u_point_val[:, n] = u_base_vec
+            ud_point_val[:, n] = u_base_vec_diff
+            u_point_idx[n] = i_idx
+            n += 1
+
+    v_point_val = numpy.zeros((3, v_n_inter * n_points))
+    vd_point_val = numpy.zeros((3, v_n_inter * n_points))
+    v_point_idx = numpy.zeros((v_n_inter * n_points, 1))
+    q_v_point = numpy.zeros((v_n_inter * n_points, 1))
+
+    n = 0
+    for i in range(v_n_inter):
+        vs = v_knots[i + 2]
+        vil = v_knots[i + 3] - v_knots[i + 2]
+        my_list = range(n_points)
+        for j in my_list:
+            vp = vs + vil * q_points[j]
+            q_u_point[n] = vp
+            v_base_vec, j_idx = spline_base_vec(v_knots, vp, 0, True)
+            v_base_vec_diff, j_idx = spline_base_vec(v_knots, vp, 1, True)
+            v_point_val[:, n] = v_base_vec
+            vd_point_val[:, n] = v_base_vec_diff
+            v_point_idx[n] = j_idx
+            n += 1
+
+    # Matrix construction
+    colv = numpy.zeros(9)
+    data = numpy.zeros(9)
+    data2 = numpy.zeros(9)
+    row_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points * 81))
+    col_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points * 81))
+    data_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points * 81))
+    nnz_a = 0
+
+    for i in range(v_n_inter):
+        for k in range(n_points):
+            v_point = v_point_val[:, i * n_points + k]
+            vd_point = vd_point_val[:, i * n_points + k]
+            j_idx = v_point_idx[i * n_points + k]
+            for l in range(u_n_inter):
+                for m in range(n_points):
+                    u_point = u_point_val[:, l * n_points + m]
+                    ud_point = ud_point_val[:, l * n_points + m]
+                    i_idx = u_point_idx[l * n_points + m]
+                    for n in range(0, 3):
+                        # Hard-coded Kronecker product: vd = numpy.kron(vd_point, u_point)
+                        data[3 * n:3 * (n + 1)] = vd_point[n] * u_point
+                        # Hard-coded Kronecker product: ud = numpy.kron(v_point, ud_point)
+                        data2[3 * n:3 * (n + 1)] = v_point[n] * ud_point
+                        # column indices for data & data2
+                        for p in range(0, 3):
+                            colv[3 * n + p] = (j_idx + n) * u_n_basf + i_idx + p
+
+                    # Hard-coded Outer product:
+                    # Jacobian * weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
+                    coef = weights[m] * weights[k] * compute_jacobian(q_u_point[l * n_points + m, 0],
+                                                                      q_v_point[i * n_points + k, 0], a, b, c, d)
+                    for n in range(0, 9):
+                        row_m[nnz_a + 9 * n:nnz_a + 9 * (n + 1)] = colv
+                        col_m[nnz_a + 9 * n:nnz_a + 9 * (n + 1)] = colv[n]
+                        data_m[nnz_a + 9 * n:nnz_a + 9 * (n + 1)] = coef * (data[n] * data + data2[n] * data2)
+                    nnz_a += 81
+
+    mat_a = scipy.sparse.coo_matrix((data_m, (row_m, col_m)), shape=(u_n_basf * v_n_basf, u_n_basf * v_n_basf)).tocsr()
+
+    return mat_a
+
+
+def build_dense_reg_matrix(u_knots, v_knots):
+    """
+    Construction of the regularization matrix (A) to decrease variation of the terrain
+    B z = b  ---> (B^T B + A)z = B^T b
+    :param u_knots: vector of v-knots
+    :param v_knots: vector of u-knots
+    :return:
+    """
+
+    u_n_basf = len(u_knots) - 3
+    v_n_basf = len(v_knots) - 3
+    u_n_inter = len(u_knots) - 5
+    v_n_inter = len(v_knots) - 5
+
+    q_points = [0, (0.5 - 1 / math.sqrt(20)), (0.5 + 1 / math.sqrt(20)), 1]
+    weights = [1.0 / 6, 5.0 / 6, 5.0 / 6, 1.0 / 6]
+    n_points = len(q_points)
+
+    u_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
+    ud_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
+
+    n = 0
+    for i in range(0, u_n_inter):
+        us = u_knots[i + 2]
+        uil = u_knots[i + 3] - u_knots[i + 2]
+        my_list = range(n_points)
+        for j in my_list:
+            up = us + uil * q_points[j]
+            u_base_vec, i_idx = spline_base_vec(u_knots, up, 0, False)
+            u_base_vec_diff, i_idx = spline_base_vec(u_knots, up, 1, False)
+            u_point_val[:, n] = u_base_vec
+            ud_point_val[:, n] = u_base_vec_diff
+            n += 1
+
+    v_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
+    vd_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
+
+    n = 0
+    for i in range(v_n_inter):
+        vs = v_knots[i + 2]
+        vil = v_knots[i + 3] - v_knots[i + 2]
+        my_list = range(n_points)
+        for j in my_list:
+            vp = vs + vil * q_points[j]
+            v_base_vec, j_idx = spline_base_vec(v_knots, vp, 0, False)
+            v_base_vec_diff, j_idx = spline_base_vec(v_knots, vp, 1, False)
+            v_point_val[:, n] = v_base_vec
+            vd_point_val[:, n] = v_base_vec_diff
+            n += 1
+
+    # Matrix construction
+    mat_a = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
+    for i in range(v_n_inter):
+        for k in range(n_points):
+            v_point = v_point_val[:, i * n_points + k]
+            vd_point = vd_point_val[:, i * n_points + k]
+            for l in range(u_n_inter):
+                for m in range(n_points):
+                    u_point = u_point_val[:, l * n_points + m]
+                    ud_point = ud_point_val[:, l * n_points + m]
+                    vd = numpy.kron(vd_point, u_point)
+                    ud = numpy.kron(v_point, ud_point)
+                    mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
+
+    return mat_a
+
+
+def build_reg_matrix(u_knots, v_knots, quad, sparse=True):
+    """
+    Construction of the regularization matrix (A) to decrease variation of the terrain
+    B z = b  ---> (B^T B + A)z = B^T b
+    :param u_knots: vector of v-knots
+    :param v_knots: vector of u-knots
+    :param quad: points defining quadrangle area (array)
+    :param sparse: use sparse version or not
+    :return:
+    """
+
     if sparse is True:
-        u_point_val = numpy.zeros((3, u_n_inter * n_points))
-        ud_point_val = numpy.zeros((3, u_n_inter * n_points))
-        u_point_idx = numpy.zeros((u_n_inter * n_points,1))
-        q_u_point = numpy.zeros((u_n_inter * n_points,1))
-
-        n = 0
-        for i in range(0, u_n_inter):
-            us = u_knots[i+2]
-            uil = u_knots[i+3] - u_knots[i+2]
-            my_list = range(n_points)
-            for j in my_list:
-                up = us + uil * q_points[j]
-                q_u_point[n] = up #
-                u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, sparse)
-                u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, sparse)
-                u_point_val[:, n] = u_base_vec
-                ud_point_val[:, n] = u_base_vec_diff
-                u_point_idx[n] = i_idx
-                n += 1
-
-        v_point_val = numpy.zeros((3, v_n_inter * n_points))
-        vd_point_val = numpy.zeros((3, v_n_inter * n_points))
-        v_point_idx = numpy.zeros((v_n_inter * n_points,1))
-        q_v_point = numpy.zeros((v_n_inter * n_points,1))
-
-        n = 0
-        for i in range(v_n_inter):
-            vs = v_knots[i+2]
-            vil = v_knots[i+3] - v_knots[i+2]
-            my_list = range(n_points)
-            for j in my_list:
-                vp = vs + vil * q_points[j]
-                q_u_point[n] = vp
-                v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, sparse)
-                v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, sparse)
-                v_point_val[:, n] = v_base_vec
-                vd_point_val[:, n] = v_base_vec_diff
-                v_point_idx[n] = j_idx
-                n += 1
-
-        # Matrix construction
-        colv = numpy.zeros((9))
-        data = numpy.zeros((9))
-        data2 = numpy.zeros((9))
-        row_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
-        col_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
-        data_m = numpy.zeros((v_n_inter * u_n_inter * n_points * n_points *81))
-        #ones = numpy.ones(shape=(1,9))
-        nnz_a = 0
-
-        for i in range(v_n_inter):
-            for k in range(n_points):
-                v_point = v_point_val[:, i * n_points + k]
-                vd_point = vd_point_val[:, i * n_points + k]
-                j_idx = v_point_idx[i * n_points + k]
-                for l in range(u_n_inter):
-                    for m in range(n_points):
-                        u_point = u_point_val[:, l * n_points + m]
-                        ud_point = ud_point_val[:, l * n_points + m]
-                        i_idx = u_point_idx[l * n_points + m]
-                        for n in range(0,3):
-                            # Hard-coded Kronecker product: vd = numpy.kron(vd_point, u_point)
-                            data[3*n:3*(n+1)] = vd_point[n] * u_point
-                            # Hard-coded Kronecker product: ud = numpy.kron(v_point, ud_point)
-                            data2[3*n:3*(n+1)] = v_point[n] * ud_point
-                            # column indices for data & data2
-                            for p in range(0,3):
-                                colv[3*n+p] = (j_idx+n) * u_n_basf + i_idx + p
-                            #print(data[3*n:3*(n+1)])
-                            #print(colv[3*n:3*(n+1)])
-                            #import time
-                            #time.sleep(5)
-
-                        # Hard-coded Outer product:  Jacobian * weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
-
-                        coef = weights[m] * weights[k] * compute_jacobian(q_u_point[l * n_points + m,0], q_v_point[i * n_points + k,0], a, b, c, d)
-                        for n in range(0,9):
-                            row_m[nnz_a + 9*n:nnz_a + 9*(n+1)] = colv
-                            col_m[nnz_a + 9*n:nnz_a + 9*(n+1)] = colv[n]
-                            data_m[nnz_a + 9*n:nnz_a + 9*(n+1)] = coef * (data[n] * data + data2[n] * data2 )
-                        nnz_a += 81
-        mat_a = scipy.sparse.coo_matrix((data_m,(row_m,col_m)),shape=(u_n_basf * v_n_basf,u_n_basf * v_n_basf)).tocsr()
-
+        return build_sparse_reg_matrix(u_knots, v_knots, quad)
     else:
-        u_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
-        ud_point_val = numpy.zeros((u_n_basf, u_n_inter * n_points))
-
-        n = 0
-        for i in range(0, u_n_inter):
-            us = u_knots[i+2]
-            uil = u_knots[i+3] - u_knots[i+2]
-            my_list = range(n_points)
-            for j in my_list:
-                up = us + uil * q_points[j]
-                u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, sparse)
-                u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, sparse)
-                u_point_val[:, n] = u_base_vec
-                ud_point_val[:, n] = u_base_vec_diff
-                n += 1
-
-        v_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
-        vd_point_val = numpy.zeros((v_n_basf, v_n_inter * n_points))
-
-        n = 0
-        for i in range(v_n_inter):
-            vs = v_knots[i+2]
-            vil = v_knots[i+3] - v_knots[i+2]
-            my_list = range(n_points)
-            for j in my_list:
-                vp = vs + vil * q_points[j]
-                v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, sparse)
-                v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, sparse)
-                v_point_val[:, n] = v_base_vec
-                vd_point_val[:, n] = v_base_vec_diff
-                n += 1
-
-        # Matrix construction
-        mat_a = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
-        for i in range(v_n_inter):
-            for k in range(n_points):
-                v_point = v_point_val[:, i * n_points + k]
-                vd_point = vd_point_val[:, i * n_points + k]
-                for l in range(u_n_inter):
-                    for m in range(n_points):
-                        u_point = u_point_val[:, l * n_points + m]
-                        ud_point = ud_point_val[:, l * n_points + m]
-                        vd = numpy.kron(vd_point, u_point)
-                        ud = numpy.kron(v_point, ud_point)
-                        mat_a += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
-
-        ##
-
-    # u_point_valx = numpy.zeros((u_n_basf, u_n_inter * n_points))
-    # ud_point_valx = numpy.zeros((u_n_basf, u_n_inter * n_points))
-    #
-    # n = 0
-    # for i in range(0, u_n_inter):
-    #     us = u_knots[i+2]
-    #     uil = u_knots[i+3] - u_knots[i+2]
-    #     my_list = range(n_points)
-    #     for j in my_list:
-    #         up = us + uil * q_points[j]
-    #         u_base_vec, i_idx  = spline_base_vec(u_knots, up, 0, 'false')
-    #         u_base_vec_diff, i_idx  = spline_base_vec(u_knots, up, 1, 'false')
-    #         u_point_valx[:, n] = u_base_vec
-    #         ud_point_valx[:, n] = u_base_vec_diff
-    #         n += 1
-    #
-    # v_point_valx = numpy.zeros((v_n_basf, v_n_inter * n_points))
-    # vd_point_valx = numpy.zeros((v_n_basf, v_n_inter * n_points))
-    #
-    # n = 0
-    # for i in range(v_n_inter):
-    #     vs = v_knots[i+2]
-    #     vil = v_knots[i+3] - v_knots[i+2]
-    #     my_list = range(n_points)
-    #     for j in my_list:
-    #         vp = vs + vil * q_points[j]
-    #         v_base_vec, j_idx  = spline_base_vec(v_knots, vp, 0, 'false')
-    #         v_base_vec_diff, j_idx  = spline_base_vec(v_knots, vp, 1, 'false')
-    #         v_point_valx[:, n] = v_base_vec
-    #         vd_point_valx[:, n] = v_base_vec_diff
-    #         n += 1
-    #
-    #     # Matrix construction
-    # mat_x = numpy.zeros((u_n_basf * v_n_basf, u_n_basf * v_n_basf))
-    # for i in range(v_n_inter):
-    #     for k in range(n_points):
-    #         v_point = v_point_valx[:, i * n_points + k]
-    #         vd_point = vd_point_valx[:, i * n_points + k]
-    #         for l in range(u_n_inter):
-    #             for m in range(n_points):
-    #                 u_point = u_point_valx[:, l * n_points + m]
-    #                 ud_point = ud_point_valx[:, l * n_points + m]
-    #                 vd = numpy.kron(vd_point, u_point)
-    #                 ud = numpy.kron(v_point, ud_point)
-    #                 mat_x += weights[m] * weights[k] * (numpy.outer(ud, ud) + numpy.outer(vd, vd))
-    #
-    # print(numpy.linalg.norm(mat_a.todense() - mat_x))
+        return build_dense_reg_matrix(u_knots, v_knots)
 
     return mat_a
 
@@ -505,20 +464,22 @@ def gen_knots(num=10):
     knots[-3:] = 1.0
     return knots
 
+
 def z_mat_to_bspline(u_knots, v_knots, z_mat, quad):
     """
     This function create B-Spline patch in raw format
     :param u_knots:
     :param v_knots:
     :param z_mat: iz = iu + nu * iv
+    :param quad:
     """
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
 
-    p0 = quad[:,0]
-    p1 = quad[:,1]
-    p2 = quad[:,2]
-    p3 = quad[:,3]
+    p0 = quad[:, 0]
+    p1 = quad[:, 1]
+    p2 = quad[:, 2]
+    p3 = quad[:, 3]
 
     # Create list of poles from z_mat
     poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
@@ -528,7 +489,8 @@ def z_mat_to_bspline(u_knots, v_knots, z_mat, quad):
 
             u = float(i) / (u_n_basf - 1)
             v = float(j) / (v_n_basf - 1)
-            xy = u * (v * p2 + (1-v) * p1) + (1-u) * ( v * p3 + (1-v) * p0)
+            # Bi-linear interpolation of point?!
+            xy = u * (v * p2 + (1 - v) * p1) + (1 - u) * ( v * p3 + (1 - v) * p0)
             x_coord = xy[0, 0]
             y_coord = xy[1, 0]
             z_coord = z_mat[j * u_n_basf + i]
@@ -690,46 +652,35 @@ def transform_points(quad, terrain_data):
     :param quad: points defining quadrangle area (array)
     :return: XXX
     """
-    import numpy as np
-    Ni = np.empty_like(quad)
+    mat_n = numpy.empty_like(quad)
 
-    Ni[:, 0] = quad[:, 0] - quad[:, 3]
-    nt = Ni[0, 0]
-    Ni[0, 0] = -Ni[1, 0]
-    Ni[1, 0] = nt
-    Ni[:, 0] = Ni[:, 0]/np.linalg.norm(Ni[:, 0])
+    mat_n[:, 0] = quad[:, 0] - quad[:, 3]
+    nt = mat_n[0, 0]
+    mat_n[0, 0] = -mat_n[1, 0]
+    mat_n[1, 0] = nt
+    mat_n[:, 0] = mat_n[:, 0]/numpy.linalg.norm(mat_n[:, 0])
 
     for i in range(1,4):
-        Ni[:, i] = quad[:, i] - quad[:, i-1]
-        nt = Ni[0, i]
-        Ni[0, i] = -Ni[1, i]
-        Ni[1, i] = nt
-        Ni[:, i] = Ni[:, i]/np.linalg.norm(Ni[:, i])
+        mat_n[:, i] = quad[:, i] - quad[:, i-1]
+        nt = mat_n[0, i]
+        mat_n[0, i] = -mat_n[1, i]
+        mat_n[1, i] = nt
+        mat_n[:, i] = mat_n[:, i]/numpy.linalg.norm(mat_n[:, i])
 
-    #print(Ni)
     terrain_len = len(terrain_data)
 
     # Compute local coordinates and drop all points outside quadraangle
-
-    param_terrain = np.empty_like(terrain_data)
+    param_terrain = numpy.empty_like(terrain_data)
     # indexing
     d0 = (terrain_data[:, 0:2] - quad[:, 0].transpose())
     d2 = (terrain_data[:, 0:2] - quad[:, 2].transpose())
     d3 = (terrain_data[:, 0:2] - quad[:, 3].transpose())
-    d0N0 = d0 * Ni[:, 0]
-    d0N1 = d0 * Ni[:, 1]
-    d2N2 = d2 * Ni[:, 2]
-    d3N3 = d3 * Ni[:, 3]
-    u = np.divide(d0N0,d0N0 + d2N2)
-    v = np.divide(d0N1,d0N1 + d3N3)
-    #print(terrain_data[0, 0:2])
-    #print(d0[0,:])
-    #print(d3[0,:])
-    #print(Ni[:, 0])
-    #print(Ni[:, 3])
-    #print(d0N1[0,0])
-    #print(d3N3[0,0])
-    #return param_terrain
+    d0_n0 = d0 * mat_n[:, 0]
+    d0_n1 = d0 * mat_n[:, 1]
+    d2_n2 = d2 * mat_n[:, 2]
+    d3_n3 = d3 * mat_n[:, 3]
+    u = numpy.divide(d0_n0, d0_n0 + d2_n2)
+    v = numpy.divide(d0_n1, d0_n1 + d3_n3)
 
     h = -1
     for j in range(0,terrain_len):
@@ -739,113 +690,78 @@ def transform_points(quad, terrain_data):
             param_terrain[h,1] = v[j]
             param_terrain[h,2] = terrain_data[j, 2]
 
-    #print(u,v)
-    #print(h)
     param_terrain.resize(h+1,3)
 
-    #print(param_terrain.shape)
-    #print(h)
-
-    uv = np.reshape(param_terrain[:,0:2], 2*h+2).transpose()
+    uv = numpy.reshape(param_terrain[:,0:2], 2*h+2).transpose()
 
     a = quad[:, 3]-quad[:, 2]
     b = quad[:, 0]-quad[:, 1]
     c = quad[:, 1]-quad[:, 2]
     d = quad[:, 0]-quad[:, 3]
 
-    #J = np.zeros([2,2,2*h+2])
-
-    ldiag = np.zeros([2 * h + 1, 1])
-    diag = np.zeros([2 * h + 2, 1])
-    udiag = np.zeros([2 * h + 1, 1])
-
-    #print(uv)
-
-    #print(param_terrain)
+    ldiag = numpy.zeros([2 * h + 1, 1])
+    diag = numpy.zeros([2 * h + 2, 1])
+    udiag = numpy.zeros([2 * h + 1, 1])
 
     # fixed point Newton iteration
     for i in range(0,1): # 1->5
         for j in range(0,h+1):
-            J = compute_jacobi(uv[2 * j, 0], uv[2 * j + 1, 0], a, b, c, d, -1)
-            ldiag[2 * j , 0] = J[1, 0]
-            diag[2 * j, 0] = J[0, 0]
-            diag[2 * j + 1, 0] = J[1, 1]
-            udiag[2 * j, 0] = J[0, 1]
+            mat_j = compute_jacobi(uv[2 * j, 0], uv[2 * j + 1, 0], a, b, c, d, -1)
+            ldiag[2 * j , 0] = mat_j[1, 0]
+            diag[2 * j, 0] = mat_j[0, 0]
+            diag[2 * j + 1, 0] = mat_j[1, 1]
+            udiag[2 * j, 0] = mat_j[0, 1]
 
-        Jg = scipy.sparse.diags([ldiag[:,0], diag[:,0], udiag[:,0]], [-1, 0, 1],format="csr")
+        Jg = scipy.sparse.diags([ldiag[:, 0], diag[:, 0], udiag[:,0]], [-1, 0, 1], format="csr")
         uv = uv - Jg.dot(uv)
 
-
-    uv = uv.reshape([h+1,2])
+    uv = uv.reshape([h + 1, 2])
 
     # Tresholding of the refined coordinates
     for j in range(0,h+1):
-        if (uv[j,0] < 0):
-            uv[:,0] = 0
-        elif (uv[j,0] > 1):
-            uv[j,0] = 1
-        elif (uv[j,1] < 0):
-            uv[:,1] = 0
-        elif (uv[j,1] > 1):
-            uv[j,1] = 1
-
-    #print(uv.shape)
-    #print(uv)
+        if uv[j, 0] < 0:
+            uv[:, 0] = 0
+        elif uv[j, 0] > 1:
+            uv[j, 0] = 1
+        elif uv[j, 1] < 0:
+            uv[:, 1] = 0
+        elif uv[j, 1] > 1:
+            uv[j, 1] = 1
 
     param_terrain[:,0:2] = uv
 
-    #print(param_terrain)
-
-    #Jg = scipy.linalg.block_diag( J[:,:,ii] for ii in  range(0,h+1))
-    #print(Jg)
-
-    #print(Jg)
-
-    #print(uv.shape)
-    #uv = scipy.sparse.linalg.spsolve(Jg, uv).toarray()
-    #print(uv.shape)
-
-
-
-    #print(uv)
-
-
     return param_terrain
 
-def compute_jacobi(u, v, a, b, c, d,output_type):
+
+def compute_jacobi(u, v, a, b, c, d, output_type):
     """
-    Compute Jacobian for local coordionates u & v
+    Compute Jacobian for local coordinates u & v
     :param u: value of parameter u
     :param v: value of parameter v
     :param a, b, c, d: vectors ( numpy array 2x1)
     :return:
     """
 
-    #J = numpy.concatenate(v * a + (1 - v) * b, u * c + (1 - u) * d)
-
-
-
-    J = numpy.append(v * a + (1 - v) * b, u * c + (1 - u) * d, axis=1)
+    mat_j = numpy.append(v * a + (1 - v) * b, u * c + (1 - u) * d, axis=1)
 
     if output_type is 1:
-        return J
+        return mat_j
     elif output_type is -1:
-        Ji = numpy.linalg.inv(J)
-        return Ji
+        return numpy.linalg.inv(mat_j)
+
 
 def compute_jacobian(u, v, a, b, c, d):
     """
-    Compute Jacobian for local coordionates u & v
+    Compute Jacobian for local coordinates u & v
     :param u: value of parameter u
     :param v: value of parameter v
     :param a, b, c, d: vectors ( numpy array 2x1)
     :return:
     """
-    #J = numpy.concatenate(v * a + (1 - v) * b, u * c + (1 - u) * d)
 
-    J = numpy.append(v * a + (1 - v) * b, u * c + (1 - u) * d, axis=1)
-    Jd = numpy.linalg.det(J)
-    return Jd
+    mat_j = numpy.append(v * a + (1 - v) * b, u * c + (1 - u) * d, axis=1)
+    return numpy.linalg.det(mat_j)
+
 
 def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     """
@@ -859,7 +775,6 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     :param filter_thresh: threshold of filter
     :return: B-Spline patch
     """
-    import numpy as np
 
     print('Transforming points to parametric space ...')
     start_time = time.time()
@@ -887,15 +802,17 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     else:
         bb_mat = numpy.dot(b_mat.transpose(), b_mat)
 
-
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     if sparse is True:
-        #scipy.sparse.linalg.norm(bb_mat, 1)
-        bb_norm = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None, maxiter=300, return_singular_vectors=False)
-        #bb_mnsg = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-2, which='SM', v0=None, maxiter=300, return_singular_vectors=False)
-        a_norm = scipy.sparse.linalg.svds(a_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None, maxiter=300, return_singular_vectors=False)
+        # scipy.sparse.linalg.norm(bb_mat, 1)
+        bb_norm = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None,
+                                           maxiter=300, return_singular_vectors=False)
+        # bb_mnsg = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-2, which='SM', v0=None,
+        # maxiter=300, return_singular_vectors=False)
+        a_norm = scipy.sparse.linalg.svds(a_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None,
+                                          maxiter=300, return_singular_vectors=False)
     else:
         bb_norm = numpy.linalg.norm(bb_mat)
         a_norm = numpy.linalg.norm(a_mat)
@@ -905,7 +822,6 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
 
     g_vec = param_terrain_data[:, 2]
     b_vec = b_mat.transpose() * g_vec
-
 
     print('Computing Z coordinates ...')
     start_time = time.time()
@@ -920,29 +836,6 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
         diff = ((abs(g_vec - numpy.dot(b_mat, z_vec))).transpose()).tolist()[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
-
-    #print(type(diff))
-    #print(diff)
-    #print(diff.__sizeof__())
-
-    #z_mat_csr = (scipy.sparse.csr_matrix(z_mat)).transpose()
-    #g_mat = (scipy.sparse.csr_matrix(g_mat))#.transpose()
-
-    #print(z_mat_csr.shape,b_mat.shape,g_mat.shape)
-
-    # diff = b_mat * z_mat_csr - g_mat
-    # print(type(diff))
-    # diff = list(diff)
-    #print(diff)
-
-    #diff = (b_mat.dot(z_mat_csr) - g_mat)
-    #print(type(diff),diff.shape)
-    #diff = diff.transpose()
-    #diff = diff.tolist()
-    #print(diff)
-
-    #print(type(b_mat * z_mat),type(g_mat[:,0]))
-    #diff = eval_diff(b_mat, z_mat, g_mat)
 
     z_vec =   z_mat_to_bspline(u_knots, v_knots, z_vec, quad)
 
@@ -966,13 +859,14 @@ def eval_diff(b_mat, z_mat, g_mat):
     return diff
 
 
-def approx(method, terrain_data, quad,u_knots, v_knots, sparse=False, conf={}):
+def approx(method, terrain_data, u_knots, v_knots, quad=None, sparse=False, conf={}):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     :param method: method used for approximation
     :param terrain_data: matrix of 3D terrain data
     :param u_knots: array of u knots
     :param v_knots: array of v knots
+    :param quad:
     :param sparse: sparse matrices will be used for computing
     :param conf: dictionary of other configuration specific for approximation method
     :return: B-Spline patch
@@ -985,5 +879,3 @@ def approx(method, terrain_data, quad,u_knots, v_knots, sparse=False, conf={}):
         return approx_chol(terrain_data, quad, u_knots, v_knots, sparse, conf['threshold'])
     else:
         raise TypeError("Wrong argument method: {0}".format(method))
-
-

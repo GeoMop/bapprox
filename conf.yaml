@@ -1,11 +1,11 @@
 terrain:
-  input: './data/teren.txt'
+  #input: './data/teren.txt'
   # Other possible input files included in ./data directory
-  #input: './data/teren_10.txt'
+  input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
 
   # Optional: When this value is set or is not zero value, then approximated B-Spline
-  # surface will be extruded allong z-axis and volume object will be saved to output
+  # surface will be extruded along z-axis and volume object will be saved to output
   # BREP file. When extrude_diff is not set or it is zero, then only surface will be
   # exported to BREP output file.
   extrude_diff: -100.0
@@ -13,36 +13,39 @@ terrain:
   # Options of terrain approximation
   approximation:
     solver:
-      # Posible values of solver method: scipy, qr, svd
-      method: 'svd'
-      # Threshold of filtering can be used only for svd method. It can reduce oscilations,
+      # Possible values of solver method: scipy, chol. Note: methods: qr, svd are not supported now
+      method: 'chol'
+      # Threshold of filtering can be used only for svd method. It can reduce oscillations,
       # but it can also make result surface worse. To filter something value has to be
       # between min and max value of Matrix S (look at debug output).
       # Other methods (scipy, qr) ignores this value.
-      threshold: 0.001
+      threshold: 0.01
       # Use sparse matrices for computing (for some reason it is very, very slow now).
       # It works for qr and svd method (not scipy).
-      sparse: false
+      sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
-    # of knots is estimated automatically (does not work corectlly in all cases
+    # of knots is estimated automatically (does not work correctly in all cases
     # and it can be very slow).
     u_knots_num: 15
     v_knots_num: 15
     # Optional: compute differences between B-Spline surface and terrain.
     # Diferences between can be visualized and/or be written to the file.
     differences: true
-    # Optional: CSV file for output of diferences
+    # Optional: CSV file for output of differences
     output_differences: './differences.csv'
+    # Optional: Definition of quadrangle area
+    quad_x: [-820050.0, -819550.0, -818100.0, -820800.0]
+    quad_y: [-1032100.0, -1032100.0, -1029500.0, -1029500.0]
 
-# Optional: When this data file is set, then it will be used for croping volume
+
+# Optional: When this data file is set, then it will be used for cropping volume
 # defined by surface and extrusion
 area:
   input: './data/vymezeni.txt'
-  # Other possible input files included in ./data directory
 
 # Optional: When this data file is set, then points of rivers will be approximated
-# with B-Spline curves and these curves will be sewed with B-Spline pathes approximating
+# with B-Spline curves and these curves will be sewed with B-Spline patches approximating
 # terrain
 rivers:
   input: './data/rivers.txt'
@@ -56,7 +59,7 @@ output: 'terrain.brep'
 
 display:
   # Original surface visualized with crosses
-  terrain: true
+  terrain: false
   # Approximated surface using B-Spline patch(es)
   surface: true
   # Rivers visualized with dots ATM

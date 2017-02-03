@@ -21,54 +21,49 @@ v_knots = get_knot_vector(v_n_basf);
 
 %%% patch boundary
 
-xp = [0.0;1.0];
-yp = [0.0;2.0];
-
-P0 = [0; 0];
-P1 = [2; 0.5];
+P0 = [0.2; 0.3];
+P1 = [1.2; 0.5];
 P2 = [1.5; 2];
-P3 = [0.3; 1.7];
+P3 = [0.9; 1.7];
 
-%%% Interpolating points
+%%% Reduce points to be approximatex (i.e., points which are in convex hull of the points P0,P1,P2,P3)
 
 X = getpoints();
-[Xp X] = transform(X,xp,yp);
+[Xp X] = transform2( X,P0,P1,P2,P3 );
 [np k] = size(Xp);
+[ Xp ] = solve2( Xp,P0,P1,P2,P3 )
 
 %%% Construction of the matrix 
 
 %interv ??
 [B, Interv ] = build_LS_matrix( u_knots,v_knots, Xp);
-%A = build_reg_matrix( u_knots,v_knots, Xp);
 
 W = sparse(diag(Xp(:,4)));
 
 g = Xp(:,3);
+b = B'*W*g;
+
+C = B'*W*B;
+nnzC = nnz(C);
+
+
+ A = build_reg_matrix( u_knots,v_knots, P0,P1,P2,P3,nnzC);
+ 
+ nC = norm(full(C))
+ nA = norm(full(A))
+  r = norm(full(C))/  norm(full(A))
+ %r = 0.0;
+ 
+ S = C+0.3*r*A;
+
+z = pcg(A,b,1e-12,500);
 
 %%% Solution
 
-% Unstable
+% Direct Solver
 % C = B'*W*B;%+A;
 % b = B'*W*g;
 % z = C\b;
-
-% Stable
-% [q r] = qr(B);
-% z = r\q'*g;
-
-% SVD
-%[U S V] = svd(full(B),'econ');
-[U S V] = svd(full(B));
-[a b] = size(S);
-Sm = S > 1e-3;
-S =S.*Sm;
-r = rank(S);
-Sdi = diag(diag(S(1:r,1:r)).^(-1));
-Si = sparse(zeros(a,b));
-Si(1:r,1:r) = Sdi;
-z = V*Si'*U'*g;
-% norm(full(B)- U*S*V')
-% pause
 
 
 % Errors
@@ -77,7 +72,7 @@ Err = get_errors(abs(W*B*z-g),Interv,u_n_basf,v_n_basf);
 
 %%% PLOT results
 
-plotresultsvec(u_knots, v_knots,xp,yp,X,z,Err)
+plotresultsvec2(u_knots, v_knots,P0,P1,P2,P3,X,z,Err)
 
 
 

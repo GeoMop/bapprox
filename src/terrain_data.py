@@ -67,6 +67,9 @@ class TerrainData(object):
         self.volume = None
         self.sewing_shape = None
         self.fractures_shape = None
+        self.quad_x = []
+        self.quad_y = []
+
 
     def load_conf_from_yaml(self):
         """
@@ -118,6 +121,14 @@ class TerrainData(object):
             self.conf['terrain']['approximation']['output_differences']
         except KeyError:
             self.conf['terrain']['approximation']['output_differences'] = None
+        try:
+            self.conf['terrain']['approximation']['quad_x']
+        except KeyError:
+            self.conf['terrain']['approximation']['quad_x'] = None
+        try:
+            self.conf['terrain']['approximation']['quad_y']
+        except KeyError:
+            self.conf['terrain']['approximation']['quad_y'] = None
         # Output
         try:
             self.conf['output']
@@ -228,9 +239,10 @@ class TerrainData(object):
             z_coord = self.terrain_data[index][2]
             self.grid[(i, j)] = (x_coord, y_coord, z_coord)
             # Transform x, y coordinates to range <0, 1>
-            x_coord = (x_coord - self.min_x) / self.diff_x
-            y_coord = (y_coord - self.min_y) / self.diff_y
+            #x_coord = (x_coord - self.min_x) / self.diff_x
+            #y_coord = (y_coord - self.min_y) / self.diff_y
             self.points[index] = (x_coord, y_coord, z_coord)
+            #print(self.min_x,self.max_x,self.min_y,self.max_y)
 
     def load_terrain(self):
         """
@@ -290,6 +302,8 @@ class TerrainData(object):
         v_knots_num = self.conf['terrain']['approximation']['v_knots_num']
         comp_diffs = self.conf['terrain']['approximation']['differences']
         output_diff = self.conf['terrain']['approximation']['output_differences']
+        quad_x = self.conf['terrain']['approximation']['quad_x']
+        quad_y = self.conf['terrain']['approximation']['quad_y']
 
         if solver_method == 'scipy':
             from scipy import interpolate
@@ -314,33 +328,45 @@ class TerrainData(object):
                 self.tW = [abs(it[2] - interpolate.bisplev(it[0], it[1], tck)) for it in self.terrain_data]
                 end_time = time.time()
                 print('Computed in {0} seconds.'.format(end_time - start_time))
-        elif solver_method == 'qr' or solver_method == 'svd' or solver_method == 'chol':
+        elif solver_method in ['qr', 'svd', 'chol']:
             import approx.terrain
             import numpy
             u_knots = approx.terrain.gen_knots(u_knots_num)
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
-            # Do own B-Spline approximation o terrain data
-            if solver_method == 'svd' or solver_method == 'chol':
-                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse, {'threshold': threshold})
+            # FIXME: When quad area is not defined, then define quad from max na min values of x coordinates
+            # NOTE: This is not effective
+            if quad_x is None or quad_y is None:
+                quad = numpy.matrix([[self.min_x, self.max_x, self.max_x, self.min_x],
+                                     [self.min_y, self.min_y, self.max_y, self.max_y]])
             else:
-                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse)
+                quad = numpy.matrix([quad_x, quad_y])
+
+            # Do own B-Spline approximation o terrain data
+            if solver_method == 'chol':
+                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, quad, sparse,
+                                                   {'threshold': threshold})
+            elif solver_method == 'svd':
+                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse,
+                                                   conf={'threshold': threshold})
+            else:
+                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse)
             poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = raw
             if comp_diffs is True:
-                # Compute difference between original terrain data and B-Spline surface
-                diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)
                 self.tW = diffs
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
-            for i in range(0, len(poles)):
-                for j in range(0, len(poles[0])):
-                    x_coord = self.min_x + self.diff_x * poles[i][j][0]
-                    y_coord = self.min_y + self.diff_y * poles[i][j][1]
-                    poles[i][j] = (x_coord, y_coord, poles[i][j][2])
-            raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
+            if solver_method != 'chol':
+                for i in range(0, len(poles)):
+                   for j in range(0, len(poles[0])):
+                       x_coord = self.min_x + self.diff_x * poles[i][j][0]
+                       y_coord = self.min_y + self.diff_y * poles[i][j][1]
+                       poles[i][j] = (x_coord, y_coord, poles[i][j][2])
+                raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:
+            #self.max_diff = self.tW.max()
             self.max_diff = max(self.tW)
             print('Max difference {0}'.format(self.max_diff))
             if output_diff is not None:
@@ -366,7 +392,7 @@ class TerrainData(object):
                 # Compute indexes to the grid first
                 i_index = int(math.floor((border_pnt[0] - self.min_x) / self.dx))
                 j_index = int(math.floor((border_pnt[1] - self.min_y) / self.dy))
-                # Compute weights for bilineral interpolation
+                # Compute weights for bi-linear interpolation
                 kx_weight = (border_pnt[0] - (self.min_x + self.dx * i_index)) / self.dx
                 ky_weight = (border_pnt[1] - (self.min_y + self.dy * j_index)) / self.dy
                 z1_coord = self.grid[(i_index, j_index)][2]
@@ -539,9 +565,9 @@ class TerrainData(object):
             if self.volume is not None:
                 # Display IDs of points at are border
                 self.approximate_2d_borders()
-                for point_id, point in enumerate(self.area_borders_3d[0]):
-                    occ_point = OCC.gp.gp_Pnt(point[0], point[1], point[2] + 10.0)
-                    display.DisplayMessage(occ_point, str(point_id));
+                # for point_id, point in enumerate(self.area_borders_3d[0]):
+                #     occ_point = OCC.gp.gp_Pnt(point[0], point[1], point[2] + 10.0)
+                #     display.DisplayMessage(occ_point, str(point_id))
                 # Display volume
                 display.DisplayShape(self.volume, update=True)
                 # Display original terrain with transparency

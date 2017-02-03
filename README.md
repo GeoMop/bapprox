@@ -13,11 +13,11 @@ Python tool for approximate 3d points using Bspline surface.
 Requirements
 ------------
 
-* Python
-* Numpy
-* SciPy
-* GnuPlot
-* Python OCC
+* Python 2.7
+* Numpy 1.11
+* SciPy 0.18
+* GnuPlot 5.0
+* Python OCC 0.17
 
 How to Run
 ----------

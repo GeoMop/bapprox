@@ -13,16 +13,16 @@ terrain:
   # Options of terrain approximation
   approximation:
     solver:
-      # Posible values of solver method: scipy, qr, svd
-      method: 'svd'
+      # Posible values of solver method: scipy, qr, svd, chol
+      method: 'chol'
       # Threshold of filtering can be used only for svd method. It can reduce oscilations,
       # but it can also make result surface worse. To filter something value has to be
       # between min and max value of Matrix S (look at debug output).
       # Other methods (scipy, qr) ignores this value.
-      threshold: 0.001
+      threshold: 0.01
       # Use sparse matrices for computing (for some reason it is very, very slow now).
       # It works for qr and svd method (not scipy).
-      sparse: false
+      sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
     # of knots is estimated automatically (does not work corectlly in all cases

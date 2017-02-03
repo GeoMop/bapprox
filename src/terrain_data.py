@@ -124,11 +124,11 @@ class TerrainData(object):
         try:
             self.conf['terrain']['approximation']['quad_x']
         except KeyError:
-            self.conf['terrain']['approximation']['quad_x'] = [-820800.0, -818100.0, -820800.0, -818100.0]
+            self.conf['terrain']['approximation']['quad_x'] = None
         try:
             self.conf['terrain']['approximation']['quad_y']
         except KeyError:
-            self.conf['terrain']['approximation']['quad_y'] = [-1032100.0, -1029500.0, -1032100.0, -1029500.0]
+            self.conf['terrain']['approximation']['quad_y'] = None
         # Output
         try:
             self.conf['output']
@@ -334,7 +334,13 @@ class TerrainData(object):
             u_knots = approx.terrain.gen_knots(u_knots_num)
             v_knots = approx.terrain.gen_knots(v_knots_num)
             terrain = numpy.matrix(self.points)
-            quad = numpy.matrix([quad_x, quad_y])
+            # FIXME: When quad area is not defined, then define quad from max na min values of x coordinates
+            # NOTE: This is not effective
+            if quad_x is None or quad_y is None:
+                quad = numpy.matrix([[self.min_x, self.max_x, self.max_x, self.min_x],
+                                     [self.min_y, self.min_y, self.max_y, self.max_y]])
+            else:
+                quad = numpy.matrix([quad_x, quad_y])
 
             # Do own B-Spline approximation o terrain data
             if solver_method == 'chol':

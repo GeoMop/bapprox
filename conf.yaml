@@ -34,7 +34,7 @@ terrain:
     differences: true
     # Optional: CSV file for output of differences
     output_differences: './differences.csv'
-    # Definition of quadrangle area
+    # Optional: Definition of quadrangle area
     quad_x: [-820050.0, -819550.0, -818100.0, -820800.0]
     quad_y: [-1032100.0, -1032100.0, -1029500.0, -1029500.0]
 

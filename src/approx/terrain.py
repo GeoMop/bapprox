@@ -648,8 +648,9 @@ def transform_points(quad, terrain_data):
     Function computes corresponding (u,v) for (x,y)
     :param terrain_data: matrix of 3D terrain data
     :param quad: points defining quadrangle area (array)
-    :return: XXX
+    :return: transformed and cropped terrain points
     """
+
     mat_n = numpy.empty_like(quad)
 
     mat_n[:, 0] = quad[:, 0] - quad[:, 3]
@@ -692,10 +693,10 @@ def transform_points(quad, terrain_data):
 
     uv = numpy.reshape(param_terrain[:, 0:2], 2*h+2).transpose()
 
-    a = quad[:, 3]-quad[:, 2]
-    b = quad[:, 0]-quad[:, 1]
-    c = quad[:, 1]-quad[:, 2]
-    d = quad[:, 0]-quad[:, 3]
+    a = quad[:, 3] - quad[:, 2]
+    b = quad[:, 0] - quad[:, 1]
+    c = quad[:, 1] - quad[:, 2]
+    d = quad[:, 0] - quad[:, 3]
 
     ldiag = numpy.zeros([2 * h + 1, 1])
     diag = numpy.zeros([2 * h + 2, 1])
@@ -726,7 +727,7 @@ def transform_points(quad, terrain_data):
         elif uv[j, 1] > 1:
             uv[j, 1] = 1
 
-    param_terrain[:,0:2] = uv
+    param_terrain[:, 0:2] = uv
 
     return param_terrain
 

@@ -224,9 +224,9 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
     v_n_basf = len(v_knots) - 3
     terrain_len = len(terrain)
 
-    row = numpy.zeros(terrain_len * 9 )
-    col = numpy.zeros(terrain_len * 9 )
-    data = numpy.zeros(terrain_len * 9 )
+    row = numpy.zeros(terrain_len * 9)
+    col = numpy.zeros(terrain_len * 9)
+    data = numpy.zeros(terrain_len * 9)
 
     if sparse is True:
         nnz_b = 0
@@ -240,12 +240,12 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
         v_base_vec, j_idx = spline_base_vec(v_knots, terrain[idx, 1], 0, sparse)
         if sparse is True:
             # Hard-coded Kronecker product (problem based)
-            for n in range(0,3):
+            for n in range(0, 3):
                 data[nnz_b + 3 * n:nnz_b + 3 * (n + 1)] = v_base_vec[n] * u_base_vec
-                for m in range(0,3):
+                for m in range(0, 3):
                     col[nnz_b + (3 * n) + m] = (j_idx + n) * u_n_basf + i_idx + m
             row[nnz_b:nnz_b+9] = idx
-            nnz_b +=  9
+            nnz_b += 9
         else:
             mat_b[idx] = numpy.kron(v_base_vec, u_base_vec)
 
@@ -253,7 +253,7 @@ def build_ls_matrix(u_knots, v_knots, terrain, sparse):
         interval[idx][1] = j_idx
 
     if sparse is True:
-        mat_b = scipy.sparse.csr_matrix((data,(row,col)),shape=(terrain_len, u_n_basf * v_n_basf))
+        mat_b = scipy.sparse.csr_matrix((data, (row, col)), shape=(terrain_len, u_n_basf * v_n_basf))
 
     return mat_b, interval
 
@@ -448,8 +448,6 @@ def build_reg_matrix(u_knots, v_knots, quad, sparse=True):
     else:
         return build_dense_reg_matrix(u_knots, v_knots)
 
-    return mat_a
-
 
 def gen_knots(num=10):
     """
@@ -490,7 +488,7 @@ def z_mat_to_bspline(u_knots, v_knots, z_mat, quad):
             u = float(i) / (u_n_basf - 1)
             v = float(j) / (v_n_basf - 1)
             # Bi-linear interpolation of point?!
-            xy = u * (v * p2 + (1 - v) * p1) + (1 - u) * ( v * p3 + (1 - v) * p0)
+            xy = u * (v * p2 + (1 - v) * p1) + (1 - u) * (v * p3 + (1 - v) * p0)
             x_coord = xy[0, 0]
             y_coord = xy[1, 0]
             z_coord = z_mat[j * u_n_basf + i]
@@ -587,7 +585,7 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
 
     diff = eval_diff(mat_b, z_mat, mat_g)
 
-    z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
+    z_mat = z_mat_to_bspline(u_knots, v_knots, z_mat)
     return z_mat, diff
 
 
@@ -605,43 +603,43 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     # Own computation of approximation
     print('Creating B matrix ...')
     start_time = time.time()
-    #b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
+    # b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
     b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, True)
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     g_mat = terrain_data[:, 2]
 
-    #print('Computing QR ...')
-    #start_time = time.time()
-    #if sparse is True:
-    #q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
-    #else:
+    # print('Computing QR ...')
+    # start_time = time.time()
+    # if sparse is True:
+    #    q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
+    # else:
     #    q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
-    #end_time = time.time()
-    #print('Computed in {0} seconds.'.format(end_time - start_time))
+    # end_time = time.time()
+    # print('Computed in {0} seconds.'.format(end_time - start_time))
 
     print('Computing Z matrix ...')
     start_time = time.time()
-    #z_mat, diff = numpy.linalg.lstsq(b_mat.todense(), g_mat)[0]
-    z_mat, diff = scipy.linalg.lstsq(b_mat.todense(), g_mat)#[0]
-    #z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
-    #z_mat = scipy.linalg.solve_triangular(r_mat, q_mat.transpose() * g_mat)#[0]
+    # z_mat, diff = numpy.linalg.lstsq(b_mat.todense(), g_mat)[0]
+    z_mat, diff = scipy.linalg.lstsq(b_mat.todense(), g_mat)
+    # z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
+    # z_mat = scipy.linalg.solve_triangular(r_mat, q_mat.transpose() * g_mat)#[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    #diff = eval_diff(b_mat, z_mat, g_mat)
-    #diff = ((abs(g_mat - numpy.dot(b_mat, z_mat))).transpose()).tolist()[0]
-    #z_mat_csr = (scipy.sparse.csr_matrix(z_mat))#.transpose()
-    #diff = (b_mat.todense()* z_mat - g_mat).transpose().tolist()[0]
-    #print(z_mat)
-    #print(z_mat.shape)
+    # diff = eval_diff(b_mat, z_mat, g_mat)
+    # diff = ((abs(g_mat - numpy.dot(b_mat, z_mat))).transpose()).tolist()[0]
+    # z_mat_csr = (scipy.sparse.csr_matrix(z_mat))#.transpose()
+    # diff = (b_mat.todense()* z_mat - g_mat).transpose().tolist()[0]
+    # print(z_mat)
+    # print(z_mat.shape)
     diff = diff.transpose().tolist()[0]
     z_mat = z_mat.transpose().tolist()[0]
-    #diff = b_mat.dot(z_mat) - g_mat
-    #diff = [val[0,0] for val in diff]
+    # diff = b_mat.dot(z_mat) - g_mat
+    # diff = [val[0,0] for val in diff]
 
-    z_mat =   z_mat_to_bspline(u_knots, v_knots, z_mat)
+    z_mat = z_mat_to_bspline(u_knots, v_knots, z_mat)
     return z_mat, diff
 
 
@@ -660,7 +658,7 @@ def transform_points(quad, terrain_data):
     mat_n[1, 0] = nt
     mat_n[:, 0] = mat_n[:, 0]/numpy.linalg.norm(mat_n[:, 0])
 
-    for i in range(1,4):
+    for i in range(1, 4):
         mat_n[:, i] = quad[:, i] - quad[:, i-1]
         nt = mat_n[0, i]
         mat_n[0, i] = -mat_n[1, i]
@@ -686,13 +684,13 @@ def transform_points(quad, terrain_data):
     for j in range(0,terrain_len):
         if (u[j] >= 0.0) and (u[j] <= 1.0) and (v[j] >= 0.0) and (v[j] <= 1.0):
             h += 1
-            param_terrain[h,0] = u[j]
-            param_terrain[h,1] = v[j]
-            param_terrain[h,2] = terrain_data[j, 2]
+            param_terrain[h, 0] = u[j]
+            param_terrain[h, 1] = v[j]
+            param_terrain[h, 2] = terrain_data[j, 2]
 
-    param_terrain.resize(h+1,3)
+    param_terrain.resize(h+1, 3)
 
-    uv = numpy.reshape(param_terrain[:,0:2], 2*h+2).transpose()
+    uv = numpy.reshape(param_terrain[:, 0:2], 2*h+2).transpose()
 
     a = quad[:, 3]-quad[:, 2]
     b = quad[:, 0]-quad[:, 1]
@@ -704,21 +702,21 @@ def transform_points(quad, terrain_data):
     udiag = numpy.zeros([2 * h + 1, 1])
 
     # fixed point Newton iteration
-    for i in range(0,1): # 1->5
-        for j in range(0,h+1):
+    for i in range(0, 1):  # 1->5
+        for j in range(0, h+1):
             mat_j = compute_jacobi(uv[2 * j, 0], uv[2 * j + 1, 0], a, b, c, d, -1)
-            ldiag[2 * j , 0] = mat_j[1, 0]
+            ldiag[2 * j, 0] = mat_j[1, 0]
             diag[2 * j, 0] = mat_j[0, 0]
             diag[2 * j + 1, 0] = mat_j[1, 1]
             udiag[2 * j, 0] = mat_j[0, 1]
 
-        Jg = scipy.sparse.diags([ldiag[:, 0], diag[:, 0], udiag[:,0]], [-1, 0, 1], format="csr")
-        uv = uv - Jg.dot(uv)
+        mat_jg = scipy.sparse.diags([ldiag[:, 0], diag[:, 0], udiag[:, 0]], [-1, 0, 1], format="csr")
+        uv = uv - mat_jg.dot(uv)
 
     uv = uv.reshape([h + 1, 2])
 
     # Tresholding of the refined coordinates
-    for j in range(0,h+1):
+    for j in range(0, h+1):
         if uv[j, 0] < 0:
             uv[:, 0] = 0
         elif uv[j, 0] > 1:
@@ -818,7 +816,7 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
         a_norm = numpy.linalg.norm(a_mat)
 
     r = filter_thresh
-    c_mat = bb_mat + r * (bb_norm[0] / a_norm[0])  * a_mat #
+    c_mat = bb_mat + r * (bb_norm[0] / a_norm[0]) * a_mat
 
     g_vec = param_terrain_data[:, 2]
     b_vec = b_mat.transpose() * g_vec
@@ -837,7 +835,7 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    z_vec =   z_mat_to_bspline(u_knots, v_knots, z_vec, quad)
+    z_vec = z_mat_to_bspline(u_knots, v_knots, z_vec, quad)
 
     return z_vec, diff
 
@@ -859,7 +857,7 @@ def eval_diff(b_mat, z_mat, g_mat):
     return diff
 
 
-def approx(method, terrain_data, u_knots, v_knots, quad=None, sparse=False, conf={}):
+def approx(method, terrain_data, u_knots, v_knots, quad=None, sparse=False, conf=None):
     """
     This function tries to approximate terrain data with B-Spline surface patches
     :param method: method used for approximation
@@ -871,6 +869,9 @@ def approx(method, terrain_data, u_knots, v_knots, quad=None, sparse=False, conf
     :param conf: dictionary of other configuration specific for approximation method
     :return: B-Spline patch
     """
+
+    conf = conf or {}
+
     if method == 'qr':
         return approx_qr(terrain_data, u_knots, v_knots, sparse)
     elif method == 'svd':

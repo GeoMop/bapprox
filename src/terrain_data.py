@@ -28,6 +28,35 @@ class TerrainData(object):
     """
     Class representing Terrain data (terrain, rivers, approximation, etc)
     """
+
+    _default_values = {
+        'terrain': {
+            'extrude_diff': 0.0,
+            'approximation': {
+                'solver' : {
+                    'method': 'scipy',
+                    'sparse': True
+                },
+                'u_knots_num': 15,
+                'v_knots_num': 15,
+                'differences': False,
+                'output_differences': None,
+                'quad_x': None,
+                'quad_y': None
+            }
+        },
+        'output': 'terrain.brep',
+        'area' : {},
+        'rivers': {},
+        'fractures': {},
+        'display': {
+            'surface': True,
+            'terrain': False,
+            'rivers': True,
+            'fractures': False
+        }
+    }
+
     def __init__(self, yaml_file_name):
         """Constructor of TerrainData"""
         super(TerrainData, self).__init__()
@@ -70,6 +99,20 @@ class TerrainData(object):
         self.quad_x = []
         self.quad_y = []
 
+    @classmethod
+    def set_default_values(cls, branch, default=_default_values):
+        """
+        Set default values of dictionary holding configuration according dictionary defined in this class.
+        This class method is called recursively.
+        :param branch: Current branch of default values
+        :param default: Current default values
+        :return: None
+        """
+        for key in default:
+            if isinstance(default[key], dict):
+                cls.set_default_values(branch.setdefault(key, {}), default[key])
+            else:
+                branch.setdefault(key, default[key])
 
     def load_conf_from_yaml(self):
         """
@@ -78,98 +121,8 @@ class TerrainData(object):
         # Yaml file is loaded to the dictionary in two lines of code :-)
         with open(self.yaml_file_name, 'r') as yaml_file:
             self.conf = yaml.load(yaml_file)
-
         # When some values are not set, then set default values
-        # Terrain
-        try:
-            self.conf['terrain']
-        except KeyError:
-            self.conf['terrain'] = {}
-        try:
-            self.conf['terrain']['extrude_diff']
-        except KeyError:
-            self.conf['terrain']['extrude_diff'] = 0.0
-        try:
-            self.conf['terrain']['approximation']
-        except KeyError:
-            self.conf['terrain']['approximation'] = {}
-        try:
-            self.conf['terrain']['approximation']['solver']
-        except KeyError:
-            self.conf['terrain']['approximation']['solver'] = {}
-        try:
-            self.conf['terrain']['approximation']['solver']['method']
-        except KeyError:
-            self.conf['terrain']['approximation']['solver']['method'] = 'scipy'
-        try:
-            self.conf['terrain']['approximation']['solver']['sparse']
-        except KeyError:
-            self.conf['terrain']['approximation']['solver']['sparse'] = True
-        try:
-            self.conf['terrain']['approximation']['u_knots_num']
-        except KeyError:
-            self.conf['terrain']['approximation']['u_knots_num'] = 15
-        try:
-            self.conf['terrain']['approximation']['v_knots_num']
-        except KeyError:
-            self.conf['terrain']['approximation']['v_knots_num'] = 15
-        try:
-            self.conf['terrain']['approximation']['differences']
-        except KeyError:
-            self.conf['terrain']['approximation']['differences'] = False
-        try:
-            self.conf['terrain']['approximation']['output_differences']
-        except KeyError:
-            self.conf['terrain']['approximation']['output_differences'] = None
-        try:
-            self.conf['terrain']['approximation']['quad_x']
-        except KeyError:
-            self.conf['terrain']['approximation']['quad_x'] = None
-        try:
-            self.conf['terrain']['approximation']['quad_y']
-        except KeyError:
-            self.conf['terrain']['approximation']['quad_y'] = None
-        # Output
-        try:
-            self.conf['output']
-        except KeyError:
-            self.conf['output'] = 'terrain.brep'
-        # Area
-        try:
-            self.conf['area']
-        except KeyError:
-            self.conf['area'] = {}
-        # Rivers
-        try:
-            self.conf['rivers']
-        except KeyError:
-            self.conf['rivers'] = {}
-        # Fractures
-        try:
-            self.conf['fractures']
-        except KeyError:
-            self.conf['fractures'] = {}
-        # Display results
-        try:
-            self.conf['display']
-        except KeyError:
-            self.conf['display'] = {}
-        try:
-            self.conf['display']['surface']
-        except KeyError:
-            self.conf['display']['surface'] = True
-        try:
-            self.conf['display']['terrain']
-        except KeyError:
-            self.conf['display']['terrain'] = False
-        try:
-            self.conf['display']['rivers']
-        except KeyError:
-            self.conf['display']['rivers'] = True
-        try:
-            self.conf['display']['fractures']
-        except KeyError:
-            self.conf['display']['fractures'] = False
+        self.set_default_values(self.conf)
 
     def __post_process_terrain_data(self):
         """

@@ -509,6 +509,8 @@ class TerrainData(object):
         display.EraseAll()
 
         diffs = self.conf['terrain']['approximation']['differences']
+        quad_x = self.conf['terrain']['approximation']['quad_x']
+        quad_y = self.conf['terrain']['approximation']['quad_y']
         display_surf = self.conf['display']['surface']
         display_terr = self.conf['display']['terrain']
         display_rivers = self.conf['display']['rivers']
@@ -553,14 +555,16 @@ class TerrainData(object):
                                                                   )
             if diffs is True:
                 idx = 1
+
             # Default RGB color of point (white)
             for point in self.terrain_data:
                 pnt = OCC.gp.gp_Pnt(point[0], point[1], point[2])
                 pnt_array.AddVertex(pnt)
-                if diffs is True:
-                    # create the point, with a diff color
-                    if self.max_diff > 0.0:
-                        diff = self.tW[idx - 1] / self.max_diff
+                # FIXME: allow display differences, when quad is defined
+                if diffs is True and quad_x is None and quad_y is None:
+                    # Create the point, with a diff color
+                    if abs(self.max_diff) > 0.0:
+                        diff = abs(self.tW[idx - 1] / self.max_diff)
                     else:
                         diff = 0.0
                     rgb = colorsys.hsv_to_rgb(diff, 1.0, 1.0)

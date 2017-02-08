@@ -826,13 +826,18 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     start_time = time.time()
     if sparse is True:
         z_vec = scipy.sparse.linalg.spsolve(c_mat, b_vec)
-        diff = (numpy.matrix(b_mat * z_vec).transpose() - g_vec).tolist()[0]
     else:
         z_vec = scipy.linalg.solve(c_mat, b_vec)
-        print(b_mat.shape)
-        print(z_vec.shape)
-        print((abs(g_vec - numpy.dot(b_mat, z_vec))).shape)
-        diff = ((abs(g_vec - numpy.dot(b_mat, z_vec))).transpose()).tolist()[0]
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+
+    print('Computing differences ...')
+    start_time = time.time()
+    if sparse is True:
+        diff = (numpy.matrix(b_mat * z_vec).transpose() - g_vec).tolist()
+    else:
+        diff = ((abs(g_vec - numpy.dot(b_mat, z_vec))).transpose()).tolist()
+    diff = [item[0] for item in diff]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 

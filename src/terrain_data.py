@@ -29,11 +29,12 @@ class TerrainData(object):
     Class representing Terrain data (terrain, rivers, approximation, etc)
     """
 
+    # Default values of bapprox configuration
     _default_values = {
         'terrain': {
             'extrude_diff': 0.0,
             'approximation': {
-                'solver' : {
+                'solver': {
                     'method': 'scipy',
                     'sparse': True
                 },
@@ -46,7 +47,7 @@ class TerrainData(object):
             }
         },
         'output': 'terrain.brep',
-        'area' : {},
+        'area': {},
         'rivers': {},
         'fractures': {},
         'display': {
@@ -192,10 +193,10 @@ class TerrainData(object):
             z_coord = self.terrain_data[index][2]
             self.grid[(i, j)] = (x_coord, y_coord, z_coord)
             # Transform x, y coordinates to range <0, 1>
-            #x_coord = (x_coord - self.min_x) / self.diff_x
-            #y_coord = (y_coord - self.min_y) / self.diff_y
+            # x_coord = (x_coord - self.min_x) / self.diff_x
+            # y_coord = (y_coord - self.min_y) / self.diff_y
             self.points[index] = (x_coord, y_coord, z_coord)
-            #print(self.min_x,self.max_x,self.min_y,self.max_y)
+            # print(self.min_x, self.max_x, self.min_y, self.max_y)
 
     def load_terrain(self):
         """
@@ -311,15 +312,15 @@ class TerrainData(object):
             # because x, y coordinates were transformed to range <0, 1>
             if solver_method != 'chol':
                 for i in range(0, len(poles)):
-                   for j in range(0, len(poles[0])):
-                       x_coord = self.min_x + self.diff_x * poles[i][j][0]
-                       y_coord = self.min_y + self.diff_y * poles[i][j][1]
-                       poles[i][j] = (x_coord, y_coord, poles[i][j][2])
+                    for j in range(0, len(poles[0])):
+                        x_coord = self.min_x + self.diff_x * poles[i][j][0]
+                        y_coord = self.min_y + self.diff_y * poles[i][j][1]
+                        poles[i][j] = (x_coord, y_coord, poles[i][j][2])
                 raw = (poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg)
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:
-            #self.max_diff = self.tW.max()
+            # self.max_diff = self.tW.max()
             self.max_diff = max(self.tW)
             print('Max difference {0}'.format(self.max_diff))
             if output_diff is not None:

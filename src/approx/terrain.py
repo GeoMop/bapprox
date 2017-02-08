@@ -715,13 +715,11 @@ def approx_svd(terrain_data, u_knots, v_knots, sparse=False, filter_thresh=0.001
     print('Computing Z matrix ...')
     start_time = time.time()
     z_mat = mat_v * (mat_si.transpose() * (mat_u.transpose() * mat_g))
+    z_vec = [item[0, 0] for item in z_mat]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    diff = eval_diff(mat_b, z_mat, mat_g)
-
-    z_mat = z_mat_to_bspline(u_knots, v_knots, z_mat)
-    return z_mat, diff
+    return z_mat_to_bspline(u_knots, v_knots, z_vec)
 
 
 def approx_qr(terrain_data, u_knots, v_knots, sparse=False):

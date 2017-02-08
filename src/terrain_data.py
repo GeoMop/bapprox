@@ -129,6 +129,7 @@ class TerrainData(object):
         """
         Try to post-process terrain data
         """
+        solver_method = self.conf['terrain']['approximation']['solver']['method']
         self.point_count = len(self.terrain_data)
         self.tX = [item[0] for item in self.terrain_data]
         self.tY = [item[1] for item in self.terrain_data]
@@ -193,8 +194,9 @@ class TerrainData(object):
             z_coord = self.terrain_data[index][2]
             self.grid[(i, j)] = (x_coord, y_coord, z_coord)
             # Transform x, y coordinates to range <0, 1>
-            # x_coord = (x_coord - self.min_x) / self.diff_x
-            # y_coord = (y_coord - self.min_y) / self.diff_y
+            if solver_method != 'chol':
+                x_coord = (x_coord - self.min_x) / self.diff_x
+                y_coord = (y_coord - self.min_y) / self.diff_y
             self.points[index] = (x_coord, y_coord, z_coord)
             # print(self.min_x, self.max_x, self.min_y, self.max_y)
 
@@ -301,12 +303,15 @@ class TerrainData(object):
                 raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, quad, sparse,
                                                    {'threshold': threshold})
             elif solver_method == 'svd':
-                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse,
+                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse,
                                                    conf={'threshold': threshold})
             else:
-                raw, diffs = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse)
+                raw = approx.terrain.approx(solver_method, terrain, u_knots, v_knots, sparse=sparse)
             poles, u_knots, v_knots, u_mults, v_mults, u_deg, v_deg = raw
             if comp_diffs is True:
+                if solver_method != 'chol':
+                    # Compute difference between original terrain data and B-Spline surface
+                    diffs = approx.terrain.differences(terrain, poles, u_knots, v_knots, u_mults, v_mults)
                 self.tW = diffs
             # Transform x, y coordinates of poles back to original range,
             # because x, y coordinates were transformed to range <0, 1>
@@ -320,7 +325,7 @@ class TerrainData(object):
             self.raw[(self.min_x, self.min_y, self.max_x, self.max_y)] = raw
 
         if comp_diffs is True:
-            # self.max_diff = self.tW.max()
+
             self.max_diff = max(self.tW)
             print('Max difference {0}'.format(self.max_diff))
             if output_diff is not None:

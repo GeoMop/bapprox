@@ -463,7 +463,138 @@ def gen_knots(num=10):
     return knots
 
 
-def z_mat_to_bspline(u_knots, v_knots, z_mat, quad):
+def spline_base(knot_vec, basis_fnc_idx, t_param):
+    """
+    This function compute normalized blending function aka base function of B-Spline curve or surface.
+    This function implement some optimization. Used by QR method.
+    :param knot_vec: knot vector
+    :param basis_fnc_idx: index of basis function
+    :param t_param: parameter t in interval <0, 1>
+    :return: value of basis function
+    """
+
+    # When basis function has zero value at given interval, then return 0
+    if t_param < knot_vec[basis_fnc_idx] or knot_vec[basis_fnc_idx+3] < t_param:
+        return 0.0
+
+    try:
+        value = SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)]
+    except KeyError:
+        try:
+            kvn = KVN_CACHE[tuple(knot_vec)]
+        except KeyError:
+            knot_vec_len = len(knot_vec)
+            kvn = [0] * knot_vec_len
+            i = 0
+            while i < knot_vec_len - 1:
+                if knot_vec[i] - knot_vec[i+1] != 0:
+                    kvn[i] = 1.0
+                i += 1
+            KVN_CACHE[tuple(knot_vec)] = kvn
+        tks = [knot_vec[basis_fnc_idx + k] for k in range(0, 4)]
+        value = 0.0
+        if knot_vec[basis_fnc_idx] <= t_param <= knot_vec[basis_fnc_idx+1] and kvn[basis_fnc_idx] != 0:
+            value = (t_param - tks[0])**2 / ((tks[2] - tks[0]) * (tks[1] - tks[0]))
+        elif knot_vec[basis_fnc_idx+1] <= t_param <= knot_vec[basis_fnc_idx+2] and kvn[basis_fnc_idx+1] != 0:
+            value = ((t_param - tks[0]) * (tks[2] - t_param)) / ((tks[2] - tks[0]) * (tks[2] - tks[1])) + \
+                   ((t_param - tks[1]) * (tks[3] - t_param)) / ((tks[3] - tks[1]) * (tks[2] - tks[1]))
+        elif knot_vec[basis_fnc_idx+2] <= t_param <= knot_vec[basis_fnc_idx+3] and kvn[basis_fnc_idx+2] != 0:
+            value = (tks[3] - t_param)**2 / ((tks[3] - tks[1]) * (tks[3] - tks[2]))
+        SB_CACHE[(tuple(knot_vec), basis_fnc_idx, t_param)] = value
+
+    return value
+
+
+KNOT_VEC_CACHE = {}
+
+
+def spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults):
+    """
+    Compute coordinate of one point at B-Surface (u and v degree is 2)
+    :param poles: matrix of "poles"
+    :param u_param: X coordinate in range <0, 1>
+    :param v_param: Y coordinate in range <0, 1>
+    :param u_knots: list of u knots
+    :param v_knots: list of v knots
+    :param u_mults: list of u multiplicities
+    :param v_mults: list of v multiplicities
+    :return: tuple of (x, y, z) coordinate of B-Spline surface
+    """
+
+    # "Decompress" knot vectors using multiplicities
+    # e.g
+    # u_knots: (0.0, 0.5, 1.0) u_mults: (3, 1, 3) will be converted to
+    # _u_knot: (0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0)
+    _u_knots = []
+    _v_knots = []
+    try:
+        _u_knots = KNOT_VEC_CACHE[(u_knots, u_mults)]
+    except KeyError:
+        for idx, mult in enumerate(u_mults):
+            _u_knots.extend([u_knots[idx]] * mult)
+        KNOT_VEC_CACHE[(u_knots, u_mults)] = _u_knots
+    try:
+        _v_knots = KNOT_VEC_CACHE[(v_knots, v_mults)]
+    except KeyError:
+        for idx, mult in enumerate(v_mults):
+            _v_knots.extend([v_knots[idx]] * mult)
+        KNOT_VEC_CACHE[(v_knots, v_mults)] = _v_knots
+
+    u_n_basf = len(_u_knots) - 3
+    v_n_basf = len(_v_knots) - 3
+
+    uf_mat = [0.0] * u_n_basf
+    vf_mat = [0.0] * v_n_basf
+
+    # Pre-compute base values of functions
+    for k in range(0, u_n_basf):
+        uf_mat[k] = spline_base(_u_knots, k, u_param)
+    for k in range(0, v_n_basf):
+        vf_mat[k] = spline_base(_v_knots, k, v_param)
+
+    x_coord, y_coord, z_coord = 0.0, 0.0, 0.0
+
+    # Compute point at B-Spline surface
+    for i in range(0, u_n_basf):
+        for j in range(0, v_n_basf):
+            base_i_j = uf_mat[i] * vf_mat[j]
+            x_coord += poles[i][j][0] * base_i_j
+            y_coord += poles[i][j][1] * base_i_j
+            z_coord += poles[i][j][2] * base_i_j
+
+    return x_coord, y_coord, z_coord
+
+
+def differences(terrain_data, poles, u_knots, v_knots, u_mults, v_mults):
+    """
+    Try to compute difference between terrain data and B-Spline surface approximation.
+    :param terrain_data: iterable data structure containing 3D points of terrain
+    :param poles: tuple of poles
+    :param u_knots: tuple of knots (u direction)
+    :param v_knots: tuple of knots (v direction)
+    :param u_mults: tuple of multiplicities (u direction)
+    :param v_mults: tuple of multiplicities (v direction)
+    :return: list of differences
+    """
+    print('Computing differences ...')
+    start_time = time.time()
+    # Create list of values of differences
+    diff = [0.0] * len(terrain_data)
+    idx = 0
+    for point in terrain_data:
+        # X and Y coordinates should be equal to u and v parameters at
+        # approximated points, but it is not true :-(
+        u_param = point[0, 0]
+        v_param = point[0, 1]
+        z_coord = spline_surface(poles, u_param, v_param, u_knots, v_knots, u_mults, v_mults)[2]
+        diff[idx] = abs(z_coord - point[0, 2])
+        idx += 1
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
+    return diff
+
+
+def z_mat_to_bspline(u_knots, v_knots, z_mat, quad=None):
     """
     This function create B-Spline patch in raw format
     :param u_knots:
@@ -474,23 +605,27 @@ def z_mat_to_bspline(u_knots, v_knots, z_mat, quad):
     u_n_basf = len(u_knots) - 3
     v_n_basf = len(v_knots) - 3
 
-    p0 = quad[:, 0]
-    p1 = quad[:, 1]
-    p2 = quad[:, 2]
-    p3 = quad[:, 3]
+    if quad is not None:
+        p0 = quad[:, 0]
+        p1 = quad[:, 1]
+        p2 = quad[:, 2]
+        p3 = quad[:, 3]
 
     # Create list of poles from z_mat
     poles = [[[0.0, 0.0, 0.0] for i in range(v_n_basf)] for j in range(u_n_basf)]
 
     for j in range(0, v_n_basf):
         for i in range(0, u_n_basf):
-
             u = float(i) / (u_n_basf - 1)
             v = float(j) / (v_n_basf - 1)
             # Bi-linear interpolation of point?!
-            xy = u * (v * p2 + (1 - v) * p1) + (1 - u) * (v * p3 + (1 - v) * p0)
-            x_coord = xy[0, 0]
-            y_coord = xy[1, 0]
+            if quad is not None:
+                xy = u * (v * p2 + (1 - v) * p1) + (1 - u) * (v * p3 + (1 - v) * p0)
+                x_coord = xy[0, 0]
+                y_coord = xy[1, 0]
+            else:
+                x_coord = u
+                y_coord = v
             z_coord = z_mat[j * u_n_basf + i]
             poles[i][j] = (x_coord, y_coord, z_coord)
 
@@ -603,44 +738,29 @@ def approx_qr(terrain_data, u_knots, v_knots, sparse=False):
     # Own computation of approximation
     print('Creating B matrix ...')
     start_time = time.time()
-    # b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
-    b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, True)
+    b_mat, interval = build_ls_matrix(u_knots, v_knots, terrain_data, sparse)
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     g_mat = terrain_data[:, 2]
 
-    # print('Computing QR ...')
-    # start_time = time.time()
-    # if sparse is True:
-    #    q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
-    # else:
-    #    q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
-    # end_time = time.time()
-    # print('Computed in {0} seconds.'.format(end_time - start_time))
-
-    print('Computing Z matrix ...')
+    print('Computing QR ...')
     start_time = time.time()
-    # z_mat, diff = numpy.linalg.lstsq(b_mat.todense(), g_mat)[0]
-    z_mat, diff = scipy.linalg.lstsq(b_mat.todense(), g_mat)
-    # z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
-    # z_mat = scipy.linalg.solve_triangular(r_mat, q_mat.transpose() * g_mat)#[0]
+    if sparse is True:
+        q_mat, r_mat = numpy.linalg.qr(b_mat.todense(), mode='full')
+    else:
+        q_mat, r_mat = numpy.linalg.qr(b_mat, mode='full')
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    # diff = eval_diff(b_mat, z_mat, g_mat)
-    # diff = ((abs(g_mat - numpy.dot(b_mat, z_mat))).transpose()).tolist()[0]
-    # z_mat_csr = (scipy.sparse.csr_matrix(z_mat))#.transpose()
-    # diff = (b_mat.todense()* z_mat - g_mat).transpose().tolist()[0]
-    # print(z_mat)
-    # print(z_mat.shape)
-    diff = diff.transpose().tolist()[0]
-    z_mat = z_mat.transpose().tolist()[0]
-    # diff = b_mat.dot(z_mat) - g_mat
-    # diff = [val[0,0] for val in diff]
+    print('Computing Z matrix ...')
+    start_time = time.time()
+    z_mat = numpy.linalg.lstsq(r_mat, q_mat.transpose() * g_mat)[0]
+    z_vec = [item[0, 0] for item in z_mat]
+    end_time = time.time()
+    print('Computed in {0} seconds.'.format(end_time - start_time))
 
-    z_mat = z_mat_to_bspline(u_knots, v_knots, z_mat)
-    return z_mat, diff
+    return z_mat_to_bspline(u_knots, v_knots, z_vec)
 
 
 def transform_points(quad, terrain_data):
@@ -657,14 +777,14 @@ def transform_points(quad, terrain_data):
     nt = mat_n[0, 0]
     mat_n[0, 0] = -mat_n[1, 0]
     mat_n[1, 0] = nt
-    mat_n[:, 0] = mat_n[:, 0]/numpy.linalg.norm(mat_n[:, 0])
+    mat_n[:, 0] = mat_n[:, 0] / numpy.linalg.norm(mat_n[:, 0])
 
     for i in range(1, 4):
         mat_n[:, i] = quad[:, i] - quad[:, i-1]
         nt = mat_n[0, i]
         mat_n[0, i] = -mat_n[1, i]
         mat_n[1, i] = nt
-        mat_n[:, i] = mat_n[:, i]/numpy.linalg.norm(mat_n[:, i])
+        mat_n[:, i] = mat_n[:, i] / numpy.linalg.norm(mat_n[:, i])
 
     terrain_len = len(terrain_data)
 

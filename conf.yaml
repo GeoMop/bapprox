@@ -1,7 +1,7 @@
 terrain:
-  #input: './data/teren.txt'
+  input: './data/teren.txt'
   # Other possible input files included in ./data directory
-  input: './data/teren_10.txt'
+  #input: './data/teren_10.txt'
   #input: './data/baze_100m_export.csv'
 
   # Optional: When this value is set or is not zero value, then approximated B-Spline
@@ -13,15 +13,15 @@ terrain:
   # Options of terrain approximation
   approximation:
     solver:
-      # Possible values of solver method: scipy, chol. Note: methods: qr, svd are not supported now
+      # Possible values of solver method: scipy, svd, qr and chol
       method: 'chol'
       # Threshold of filtering can be used only for svd method. It can reduce oscillations,
       # but it can also make result surface worse. To filter something value has to be
       # between min and max value of Matrix S (look at debug output).
       # Other methods (scipy, qr) ignores this value.
       threshold: 0.01
-      # Use sparse matrices for computing (for some reason it is very, very slow now).
-      # It works for qr and svd method (not scipy).
+      # Use sparse matrices for computing (for some reason it is very, when qr/svd method is used).
+      # It works for qr, svd and chol method (not scipy).
       sparse: true
     # Optional: set number of knots (default: 15x15)
     # Note: When knots are set to zeros and scipy is used, then number
@@ -30,13 +30,13 @@ terrain:
     u_knots_num: 15
     v_knots_num: 15
     # Optional: compute differences between B-Spline surface and terrain.
-    # Diferences between can be visualized and/or be written to the file.
+    # Differences between can be visualized and/or be written to the file.
     differences: true
     # Optional: CSV file for output of differences
     output_differences: './differences.csv'
-    # Optional: Definition of quadrangle area
-    quad_x: [-820050.0, -819550.0, -818100.0, -820800.0]
-    quad_y: [-1032100.0, -1032100.0, -1029500.0, -1029500.0]
+    # Optional: Definition of quadrangle area (works only for chol method)
+    #quad_x: [-820050.0, -819550.0, -818100.0, -820800.0]
+    #quad_y: [-1032100.0, -1032100.0, -1029500.0, -1029500.0]
 
 
 # Optional: When this data file is set, then it will be used for cropping volume
@@ -59,7 +59,7 @@ output: 'terrain.brep'
 
 display:
   # Original surface visualized with crosses
-  terrain: false
+  terrain: true
   # Approximated surface using B-Spline patch(es)
   surface: true
   # Rivers visualized with dots ATM

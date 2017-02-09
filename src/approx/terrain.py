@@ -923,19 +923,15 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
     if sparse is True:
-        # scipy.sparse.linalg.norm(bb_mat, 1)
         bb_norm = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None,
                                            maxiter=300, return_singular_vectors=False)
-        # bb_mnsg = scipy.sparse.linalg.svds(bb_mat, k=1, ncv=10, tol=1e-2, which='SM', v0=None,
-        # maxiter=300, return_singular_vectors=False)
         a_norm = scipy.sparse.linalg.svds(a_mat, k=1, ncv=10, tol=1e-4, which='LM', v0=None,
                                           maxiter=300, return_singular_vectors=False)
+        c_mat = bb_mat + filter_thresh * (bb_norm[0] / a_norm[0]) * a_mat
     else:
         bb_norm = numpy.linalg.norm(bb_mat)
         a_norm = numpy.linalg.norm(a_mat)
-
-    r = filter_thresh
-    c_mat = bb_mat + r * (bb_norm[0] / a_norm[0]) * a_mat
+        c_mat = bb_mat + filter_thresh * (bb_norm / a_norm) * a_mat
 
     g_vec = param_terrain_data[:, 2]
     b_vec = b_mat.transpose() * g_vec
@@ -946,6 +942,8 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
         z_vec = scipy.sparse.linalg.spsolve(c_mat, b_vec)
     else:
         z_vec = scipy.linalg.solve(c_mat, b_vec)
+        z_vec = z_vec[:, 0]
+    print(type(z_vec))
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
@@ -953,9 +951,10 @@ def approx_chol(terrain_data, quad, u_knots, v_knots, sparse, filter_thresh):
     start_time = time.time()
     if sparse is True:
         diff = (numpy.matrix(b_mat * z_vec).transpose() - g_vec).tolist()
+        diff = [item[0] for item in diff]
     else:
         diff = ((abs(g_vec - numpy.dot(b_mat, z_vec))).transpose()).tolist()
-    diff = [item[0] for item in diff]
+        diff = diff[0]
     end_time = time.time()
     print('Computed in {0} seconds.'.format(end_time - start_time))
 
